@@ -1,0 +1,1 @@
+{"code":"OK","message":"success","data":{"imageId":1,"fileName":"test-upload.png","mimeType":"image/png","fileSize":68,"width":null,"height":null,"accessUrl":"/api/images/1/content","createdAt":"2026-06-23T11:19:03.992667700Z"}}

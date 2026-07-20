@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 试卷讲解工作台</title>
+    <link rel="stylesheet" href="/app.css">
+</head>
+<body>
+<div class="shell">
+    <aside class="sidebar">
+        <div class="brand panel">
+            <p class="eyebrow">AI Exam Studio</p>
+            <h1>试卷讲解工作台</h1>
+            <p class="subtle">围绕题图、对话与标注的最小可联调前端。</p>
+            <div class="brand-badge">工作中：会话、回放、画布与 AI 标注</div>
+        </div>
+
+        <section class="panel user-panel">
+            <div class="panel-header">
+                <div>
+                    <h2>当前账号</h2>
+                    <p class="subtle">登录后在这里查看身份并安全退出。</p>
+                </div>
+                <button id="logoutBtn" class="ghost small">退出</button>
+            </div>
+            <div id="authStatus" class="status-line">正在恢复登录态...</div>
+        </section>
+
+        <section class="panel">
+            <div class="panel-header">
+                <h2>会话</h2>
+                <button id="refreshSessionsBtn" class="ghost small">刷新</button>
+            </div>
+            <div class="session-actions stack">
+                <label>
+                    <span>可用模型</span>
+                    <select id="modelSelect"></select>
+                </label>
+                <form id="uploadForm" class="inline-form">
+                    <label class="file-field">
+                        <span>题图文件</span>
+                        <input id="imageFileInput" type="file" accept="image/png,image/jpeg,image/webp" required>
+                    </label>
+                    <button type="submit">上传题图</button>
+                </form>
+                <div id="imageMeta" class="info-box">尚未上传题图</div>
+                <form id="createSessionForm" class="stack">
+                    <div class="section-intro">
+                        <h3>创建新会话</h3>
+                        <p class="subtle">上传题图后，补齐会话信息开始讲解。</p>
+                    </div>
+                    <label>
+                        <span>会话标题</span>
+                        <input id="sessionTitleInput" maxlength="255" placeholder="例如：二次函数题讲解">
+                    </label>
+                    <label>
+                        <span>学科</span>
+                        <input id="subjectCodeInput" maxlength="32" value="MATH">
+                    </label>
+                    <label>
+                        <span>年级</span>
+                        <input id="gradeLevelInput" maxlength="32" value="JUNIOR">
+                    </label>
+                    <button type="submit">创建会话</button>
+                </form>
+            </div>
+            <ul id="sessionList" class="session-list"></ul>
+        </section>
+    </aside>
+
+    <main class="workspace">
+        <section class="panel chat-panel">
+            <div class="panel-header">
+                <div>
+                    <h2 id="sessionHeading">当前未选择会话</h2>
+                    <p id="sessionMeta" class="subtle">先上传题图并创建会话。</p>
+                </div>
+                <a class="ghost small action-link" href="/memo.md" target="_blank" rel="noreferrer">备忘录</a>
+            </div>
+            <div id="messageList" class="message-list"></div>
+            <form id="messageForm" class="message-form">
+                <textarea id="messageInput" rows="3" maxlength="4000" placeholder="输入你的问题，例如：我不会这道题，下一步该看哪里？"></textarea>
+                <div class="message-actions">
+                    <label class="answer-mode-field">
+                        <span>回答模式</span>
+                        <select id="answerModeSelect">
+                            <option value="guided" selected>引导模式</option>
+                            <option value="direct">直答模式</option>
+                        </select>
+                    </label>
+                    <span id="messageHint" class="subtle">先识别条件并提出一个小问题，之后根据你的回答逐步提示。</span>
+                    <button type="submit">发送</button>
+                </div>
+            </form>
+        </section>
+
+        <section class="panel replay-panel">
+            <div class="panel-header">
+                <div>
+                    <h2>对话回放</h2>
+                    <p id="replayStatus" class="subtle">选择会话后可载入回放时间线。</p>
+                </div>
+                <button id="loadReplayBtn" class="ghost small">载入回放</button>
+            </div>
+            <div class="replay-controls">
+                <button id="replayPlayBtn" class="small">播放</button>
+                <button id="replayPrevBtn" class="ghost small">上一步</button>
+                <button id="replayNextBtn" class="ghost small">下一步</button>
+                <button id="replayResetBtn" class="ghost small">重置</button>
+                <button id="replayExitBtn" class="ghost small">退出回放</button>
+                <label class="replay-speed">
+                    <span>速度</span>
+                    <select id="replaySpeedSelect">
+                        <option value="1800">慢速</option>
+                        <option value="1200" selected>标准</option>
+                        <option value="650">快速</option>
+                    </select>
+                </label>
+            </div>
+            <ol id="replayTimeline" class="replay-timeline"></ol>
+        </section>
+
+        <section class="panel canvas-panel">
+            <div class="canvas-header">
+                <div class="panel-header">
+                    <div>
+                        <h2>题图与标注</h2>
+                        <p class="subtle">当前为前端本地标注画布，后续接后端 `canvas` API。</p>
+                    </div>
+                </div>
+                <div class="toolbar">
+                    <button data-tool="pen" class="tool-button active">画笔</button>
+                    <button data-tool="rect" class="tool-button">矩形</button>
+                    <button data-tool="arrow" class="tool-button">箭头</button>
+                    <button data-tool="text" class="tool-button">文字</button>
+                    <button id="undoCanvasBtn" class="ghost small">撤销</button>
+                    <button id="clearCanvasBtn" class="ghost small">清空</button>
+                    <button id="exportCanvasBtn" class="ghost small">导出 JSON</button>
+                </div>
+            </div>
+            <div class="canvas-stage-wrap">
+                <div id="canvasStage" class="canvas-stage">
+                    <img id="questionImage" alt="题图预览">
+                    <canvas id="annotationCanvas"></canvas>
+                </div>
+            </div>
+            <div class="canvas-footer">
+                <div class="canvas-controls">
+                    <label>
+                        <span>标注颜色</span>
+                        <input id="colorInput" type="color" value="#ff6b6b">
+                    </label>
+                    <label>
+                        <span>线宽</span>
+                        <input id="sizeInput" type="range" min="1" max="8" value="3">
+                    </label>
+                </div>
+                <div class="canvas-json-card">
+                    <div class="canvas-json-title">当前画布 JSON</div>
+                    <pre id="canvasExport" class="canvas-export">[]</pre>
+                </div>
+            </div>
+        </section>
+    </main>
+</div>
+
+<div id="toast" class="toast hidden"></div>
+<script src="/app.js"></script>
+</body>
+</html>

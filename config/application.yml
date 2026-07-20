@@ -1,0 +1,6 @@
+app:
+  model:
+    bailian:
+      api-key: sk-ws-H.EMDIERI.HYVH.MEUCIQDg_W_eocCAq-j5FxRH8lLctiz0pNSaznDlGtzaKjlLjQIgeqpYVgzX0LR7w8KSGk8xeN4hhTyJf-YesWQPeplPZ18
+      base-url: https://ws-rjhou3pw5punr881.cn-beijing.maas.aliyuncs.com
+      max-tokens: 3000

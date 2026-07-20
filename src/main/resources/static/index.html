@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登录 / 注册 - AI 试卷讲解工作台</title>
+    <link rel="stylesheet" href="/app.css">
+</head>
+<body class="auth-page">
+<div class="auth-shell">
+    <section class="auth-hero panel">
+        <p class="eyebrow">AI Exam Studio</p>
+        <h1>试卷讲解工作台</h1>
+        <p class="auth-lead">上传题图、创建会话、围绕题目逐步讲解与标注，把登录前和工作中的体验分开，让流程更清晰。</p>
+        <div class="brand-badge">当前阶段：登录、题图上传、会话、回放与本地标注已联通</div>
+        <ul class="hero-points">
+            <li>登录后进入独立工作台页面</li>
+            <li>支持题图上传、对话讲解与画布标注</li>
+            <li>支持回放时间线和 AI 标注联动</li>
+        </ul>
+    </section>
+
+    <section class="auth-main panel">
+        <div class="panel-header auth-header">
+            <div>
+                <h2>账号入口</h2>
+                <p class="subtle">首次使用先注册，已有账号直接登录。</p>
+            </div>
+            <a class="ghost small action-link" href="/memo.md" target="_blank" rel="noreferrer">备忘录</a>
+        </div>
+
+        <div class="auth-grid auth-grid-split">
+            <form id="loginForm" class="stack auth-card">
+                <div class="section-intro">
+                    <h3>登录</h3>
+                    <p class="subtle">登录成功后会自动进入工作台。</p>
+                </div>
+                <label>
+                    <span>用户名</span>
+                    <input name="username" required autocomplete="username">
+                </label>
+                <label>
+                    <span>密码</span>
+                    <input name="password" type="password" required autocomplete="current-password">
+                </label>
+                <button type="submit">登录并进入工作台</button>
+            </form>
+
+            <form id="registerForm" class="stack auth-card">
+                <div class="section-intro">
+                    <h3>注册</h3>
+                    <p class="subtle">创建账号后即可登录并开始上传题图。</p>
+                </div>
+                <label>
+                    <span>用户名</span>
+                    <input name="username" required minlength="4" autocomplete="username">
+                </label>
+                <label>
+                    <span>密码</span>
+                    <input name="password" type="password" required minlength="8" autocomplete="new-password">
+                </label>
+                <label>
+                    <span>昵称</span>
+                    <input name="nickname" autocomplete="nickname">
+                </label>
+                <button type="submit" class="secondary">注册账号</button>
+            </form>
+        </div>
+
+        <div id="authStatus" class="status-line">未登录</div>
+    </section>
+</div>
+
+<div id="toast" class="toast hidden"></div>
+<script src="/auth.js"></script>
+</body>
+</html>
