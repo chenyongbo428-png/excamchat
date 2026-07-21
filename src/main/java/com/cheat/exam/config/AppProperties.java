@@ -47,9 +47,14 @@ public class AppProperties {
 
     public static final class Model {
         private final Bailian bailian = new Bailian();
+        private final Ark ark = new Ark();
 
         public Bailian getBailian() {
             return bailian;
+        }
+
+        public Ark getArk() {
+            return ark;
         }
     }
 
@@ -58,6 +63,54 @@ public class AppProperties {
         private String baseUrl;
         private int timeoutSeconds = 60;
         private int maxTokens = 700;
+        private double temperature = 0.2;
+
+        public String getApiKey() {
+            return apiKey;
+        }
+
+        public void setApiKey(String apiKey) {
+            this.apiKey = apiKey;
+        }
+
+        public String getBaseUrl() {
+            return baseUrl;
+        }
+
+        public void setBaseUrl(String baseUrl) {
+            this.baseUrl = baseUrl;
+        }
+
+        public int getTimeoutSeconds() {
+            return timeoutSeconds;
+        }
+
+        public void setTimeoutSeconds(int timeoutSeconds) {
+            this.timeoutSeconds = timeoutSeconds;
+        }
+
+        public int getMaxTokens() {
+            return maxTokens;
+        }
+
+        public void setMaxTokens(int maxTokens) {
+            this.maxTokens = maxTokens;
+        }
+
+        public double getTemperature() {
+            return temperature;
+        }
+
+        public void setTemperature(double temperature) {
+            this.temperature = temperature;
+        }
+    }
+
+    public static final class Ark {
+        private String apiKey;
+        private String baseUrl = "https://ark.cn-beijing.volces.com/api/v3";
+        private int timeoutSeconds = 60;
+        private int maxTokens = 3000;
         private double temperature = 0.2;
 
         public String getApiKey() {

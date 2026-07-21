@@ -52,10 +52,15 @@
 - Added backend mode propagation through `CreateMessageRequest` and `ModelChatRequest`; missing mode values safely fall back to `guided`.
 - Added persisted multi-turn guidance state on 2026-07-20: `chat_session.guidance_state_json` stores the current stage, goal, hint count, stuck count, last answer status, and confidence; the state is injected into later model prompts.
 - Added guardrails for guidance drift: each turn is limited to one goal, uncertain judgments ask the student for concrete work, and two consecutive non-progress turns trigger a summary/check-in instead of another guessed hint.
+- Added Volcengine Ark / Doubao model support on 2026-07-21: `ArkModelClient` calls OpenAI-compatible `/api/v3/chat/completions`, sends local question images as data URLs, and exposes Ark Endpoint `ep-20260721164323-qjbgk` through `model_config`.
+- Enabled Doubao streaming after verifying Ark Endpoint `ep-20260721164323-qjbgk` returns `text/event-stream`; Ark stream parsing now accepts both `delta.content` and `delta.reasoning_content`.
+- Added session history deletion on 2026-07-21: the sidebar can delete a conversation through `DELETE /api/sessions/{id}`, using backend soft delete and clearing the workspace if the current session is removed.
+- Clarified model selection behavior in the sidebar: choosing a model only affects newly created sessions, while existing sessions keep their original bound model.
+- Re-enabled Qwen streaming in model metadata with `V10__enable_qwen_stream_support.sql` after the frontend started respecting `supportsStream`.
 
 ## Pending
 
-- Add session delete and richer AI annotation types.
+- Add richer AI annotation types.
 - Evaluate direct image-answer accuracy with real uploaded exam questions before re-enabling guided/annotation constraints.
 - Improve mobile layout, accessibility, and keyboard shortcuts.
 - Add richer conflict handling if two browser tabs edit the same canvas version at the same time.
@@ -66,3 +71,4 @@
 - Restart the local backend, then re-test `C:/Users/admin/Desktop/timu.jpg` in guided mode and check whether the first answer asks a useful question instead of giving the full solution.
 - Compare guided and direct answers on the same real question image, then tune the multi-turn hint policy if the model reveals too much or too little.
 - Split answer evaluation from hint generation in a later iteration, with explicit `CORRECT`, `PARTIAL`, `WRONG`, and `UNCLEAR` statuses.
+- Configure `ARK_API_KEY` outside the repository, then compare Doubao and Qwen-VL on the same real question image.

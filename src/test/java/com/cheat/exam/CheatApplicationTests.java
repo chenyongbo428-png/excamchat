@@ -3,6 +3,7 @@ package com.cheat.exam;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -270,5 +271,23 @@ class CheatApplicationTests {
                 org.assertj.core.api.Assertions.assertThat(body).contains("event: delta");
                 org.assertj.core.api.Assertions.assertThat(body).contains("event: done");
             });
+
+        mockMvc.perform(delete("/api/sessions/{sessionId}", sessionId)
+                .header("Authorization", "Bearer " + token))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.code").value("OK"))
+            .andExpect(jsonPath("$.data").value(true));
+
+        mockMvc.perform(get("/api/sessions")
+                .header("Authorization", "Bearer " + token)
+                .param("page", "1")
+                .param("pageSize", "20"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.items.length()").value(0));
+
+        mockMvc.perform(get("/api/sessions/{sessionId}", sessionId)
+                .header("Authorization", "Bearer " + token))
+            .andExpect(status().isNotFound())
+            .andExpect(jsonPath("$.code").value("SESSION_NOT_FOUND"));
     }
 }

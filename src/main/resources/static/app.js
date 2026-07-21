@@ -7,6 +7,7 @@
         models: [],
         sessions: [],
         currentSessionId: null,
+        currentModelCode: "",
         currentImageId: null,
         currentImageUrl: "",
         currentImageObjectUrl: "",
@@ -256,6 +257,20 @@
         });
     }
 
+    function currentModelSupportsStream() {
+        const model = state.models.find(function (item) {
+            return item.modelCode === state.currentModelCode;
+        });
+        return model ? Boolean(model.supportsStream) : true;
+    }
+
+    function currentModelLabel() {
+        const model = state.models.find(function (item) {
+            return item.modelCode === state.currentModelCode;
+        });
+        return model ? model.displayName + " / " + model.providerCode : state.currentModelCode;
+    }
+
     async function loadModels() {
         try {
             const result = await api("/api/models/enabled", { method: "GET" });
@@ -282,15 +297,38 @@
             const item = document.createElement("li");
             item.className = "session-item" + (session.sessionId === state.currentSessionId ? " active" : "");
             item.innerHTML = [
+                '<div class="session-row">',
                 '<div class="session-title">' + escapeHtml(session.title || "未命名会话") + "</div>",
+                '<button type="button" class="session-delete" title="删除历史对话">删除</button>',
+                "</div>",
                 '<div class="subtle">' + escapeHtml(session.modelCode || "-") + " · " +
                     escapeHtml(formatDateTime(session.lastMessageAt || session.createdAt)) + "</div>"
             ].join("");
+            item.querySelector(".session-delete").addEventListener("click", function (event) {
+                event.stopPropagation();
+                deleteSession(session.sessionId, session.title);
+            });
             item.addEventListener("click", function () {
                 selectSession(session.sessionId);
             });
             dom.sessionList.appendChild(item);
         });
+    }
+
+    async function deleteSession(sessionId, title) {
+        if (!window.confirm("确定删除历史对话“" + (title || "未命名会话") + "”吗？")) {
+            return;
+        }
+        try {
+            await api("/api/sessions/" + sessionId, { method: "DELETE" });
+            if (state.currentSessionId === sessionId) {
+                clearCurrentSessionView();
+            }
+            await loadSessions();
+            showToast("历史对话已删除");
+        } catch (error) {
+            showToast("删除历史对话失败：" + error.message, true);
+        }
     }
 
     async function loadSessions() {
@@ -899,6 +937,7 @@
         revokeCurrentImageObjectUrl();
         resetReplayState(true);
         state.currentSessionId = null;
+        state.currentModelCode = "";
         state.currentImageId = null;
         state.currentImageUrl = "";
         state.currentImageNaturalWidth = 0;
@@ -1141,6 +1180,7 @@
             const messages = responses[1].data || [];
 
             state.currentImageId = detail.image ? detail.image.imageId : null;
+            state.currentModelCode = detail.modelCode || "";
             state.currentImageUrl = detail.image ? detail.image.accessUrl : "";
             state.messages = messages;
             state.aiAnnotations = extractAnnotations(messages);
@@ -1447,6 +1487,7 @@
         state.messages.push(result.data.userMessage, result.data.assistantMessage);
         state.aiAnnotations = extractAnnotations(state.messages);
         renderMessages();
+        return { fallback: false };
     }
 
     async function streamAssistantMessage(content, mode) {
@@ -1600,7 +1641,16 @@
                 await exitReplayMode();
             }
             dom.messageInput.value = "";
-            const sendResult = await streamAssistantMessage(content, state.answerMode);
+            const supportsStream = currentModelSupportsStream();
+            console.info("send message", {
+                sessionId: state.currentSessionId,
+                model: currentModelLabel(),
+                supportsStream: supportsStream,
+                mode: state.answerMode
+            });
+            const sendResult = supportsStream
+                ? await streamAssistantMessage(content, state.answerMode)
+                : await sendMessageWithoutStream(content, null, state.answerMode);
             renderMessages();
             redrawCanvas();
             await loadSessions();

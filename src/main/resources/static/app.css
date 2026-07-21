@@ -586,6 +586,30 @@ button.small {
     margin-bottom: 6px;
 }
 
+.session-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.session-delete {
+    border: 1px solid rgba(161, 42, 42, 0.22);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.74);
+    color: #a12a2a;
+    cursor: pointer;
+    font-size: 12px;
+    line-height: 1;
+    padding: 6px 9px;
+    transition: background 120ms ease, border-color 120ms ease;
+}
+
+.session-delete:hover {
+    background: rgba(161, 42, 42, 0.1);
+    border-color: rgba(161, 42, 42, 0.38);
+}
+
 .info-box,
 .canvas-export {
     border: 1px dashed var(--line);

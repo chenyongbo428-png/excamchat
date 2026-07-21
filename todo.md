@@ -291,6 +291,18 @@
 - [x] 2026-07-07 已排查“长答案只显示一半”：根因不是前端 CSS，而是百炼/Qwen 非结构化兜底解析把用户可见 `replyText` 截断到 600 字符，且本地 `max_tokens` 仅 500；已移除用户可见答案截断，并将默认/本地输出上限提高到 3000 tokens
 - [x] 2026-07-07 已新增长文本回归测试，确保模型返回超过 600 字符的纯文本答案时，最终持久化助手消息不会再被替换成半截内容
 - [x] 2026-07-09 已将百炼/Qwen 从临时“直答识图模式”切换回“引导式讲解模式”，同时保留 3000 tokens 输出预算和流式输出能力
+- [x] 2026-07-21 已新增火山方舟 / 豆包 `ArkModelClient`，按 OpenAI-compatible `/api/v3/chat/completions` 接入 `doubao-seed-2-1-turbo-260628` 视觉模型，支持图片 data URL 和普通回复；SSE 流式解析代码已保留，但模型配置默认禁用流式直到真实联调确认
+- [x] 2026-07-21 已新增 `ARK_API_KEY`、`ARK_BASE_URL`、`ARK_TIMEOUT_SECONDS`、`ARK_MAX_TOKENS`、`ARK_TEMPERATURE` 外部化配置；真实密钥不得写入仓库
+- [x] 2026-07-21 已新增 Flyway 迁移 `V7__add_ark_doubao_model.sql`，写入 `doubao-seed-2-1-turbo-260628` / `ARK` 模型配置
+- [x] 2026-07-21 已修复豆包调用失败时错误信息过少的问题：Ark 非 2xx 响应会透传供应商错误摘要；前端会根据模型 `supportsStream` 决定是否直接走普通消息接口
+- [x] 2026-07-21 已新增 Flyway 迁移 `V8__disable_ark_stream_until_verified.sql`，先关闭豆包流式能力开关，避免未确认 Ark SSE 行为前前端误走流式链路
+- [x] 2026-07-21 已新增 Flyway 迁移 `V9__update_ark_doubao_endpoint_model.sql`，将豆包模型编码切换为火山方舟 Endpoint ID `ep-20260721164323-qjbgk`
+- [x] 2026-07-21 已在前端模型选择处补充提示：模型选择只对新建会话生效，旧会话继续使用创建时绑定的模型
+- [x] 2026-07-21 已新增 Flyway 迁移 `V10__enable_qwen_stream_support.sql`，修复前端按 `supportsStream` 决策后 Qwen 被误判为非流式的问题
+- [x] 2026-07-21 已验证豆包 Ark Endpoint `ep-20260721164323-qjbgk` 支持 `text/event-stream`，新增 `V11__enable_ark_stream_support.sql` 开启豆包流式；Ark 流式解析兼容 `delta.content` 和 `delta.reasoning_content`
+- [x] 2026-07-21 已给 `ArkModelClient` 增加安全调用日志：记录模型、会话、模式、是否带图、HTTP 状态、响应长度、providerRequestId 和错误摘要，不输出 API Key 或图片 base64
+- [x] 2026-07-21 已给 `SessionService` 消息发送链路增加日志：记录普通/流式入口、模型返回、回复长度和消息落库 ID，用于排查“模型返回但前端不显示”问题
+- [x] 2026-07-21 已新增 `ArkModelClientTests`，覆盖 Ark 配置缺失、图片 data URL 普通请求，以及 `delta.reasoning_content` / `delta.content` 流式增量解析
 - [ ] 下一步最优先：用真实题目图片验证 Qwen-VL 在引导模式下是否能先提出有效问题、再根据学生回答逐步推进
 
 ---
@@ -388,7 +400,7 @@
   - [x] 创建会话
   - [x] 会话列表
   - [x] 会话详情
-  - [ ] 删除会话
+  - [x] 删除会话
 - [ ] 消息接口
   - [x] 发送消息
   - [x] 拉取历史消息
@@ -404,13 +416,14 @@
 
 当前实现记录：
 
-- [x] 当前已开放接口：`POST /api/sessions`、`GET /api/sessions`、`GET /api/sessions/{id}`、`POST /api/sessions/{id}/messages`、`GET /api/sessions/{id}/messages`
+- [x] 当前已开放接口：`POST /api/sessions`、`GET /api/sessions`、`GET /api/sessions/{id}`、`DELETE /api/sessions/{id}`、`POST /api/sessions/{id}/messages`、`GET /api/sessions/{id}/messages`
 - [x] 当前消息发送已实现 MVP stub AI 回复，返回 `hintLevel`、`guidanceStage`、`teacherIntent` 和 `annotationSummary`，行为遵循 `docs/ai-prompt-spec.md` 的“引导型老师”约束
 - [x] 当前消息发送链路会持久化用户消息与助手消息，助手结构化结果落库到 `raw_payload_json` / `annotation_json`
 - [x] 已通过 `mvnw.cmd test` 验证会话与消息最小闭环
 - [x] 已在本地 MySQL 8.0.36 环境下验证注册、登录、模型列表、图片上传、会话创建、会话列表、会话详情、消息发送、消息历史查询成功
 - [x] 已完成 Phase 7/8 前置工作：已查阅并落实 `docs/canvas-protocol.md`，补齐 `canvas_document` / `canvas_operation` 实体、迁移与 `GET/PUT /api/canvas/{sessionId}` 最小接口
 - [x] 2026-07-20 已新增会话引导状态字段和 V6 迁移；每轮模型调用会读取状态并在助手回复后更新状态
+- [x] 2026-07-21 已新增历史对话删除能力：`DELETE /api/sessions/{id}` 软删除会话，前端会话列表提供删除按钮，删除当前会话后自动清空工作区
 - [ ] 下一步：把模型回答评估拆成独立结构化步骤，避免老师 Prompt 同时承担判题和提示生成
 
 ---
@@ -487,6 +500,10 @@
 - [x] 2026-07-06 已用浏览器插件实测前端流式展示，确认助手消息在 `streaming` 状态下持续增量变长，完成后替换为持久化消息；同时修复流式接口失败时“发送成功”覆盖降级提示的问题
 - [x] 2026-07-07 已确认长答案显示不全并非 `.message-list` 高度或 `overflow` 导致：消息区域可滚动，主消息渲染没有 `slice/substring`；前端会在 `done` 后使用后端持久化消息，因此后端 `replyText` 被截断会表现为流式结束后答案变短
 - [x] 2026-07-09 已将前端流式助手草稿的临时 `teacherIntent` 从 `answer_question` 调整为 `guide_next_step`，与后端引导式讲解模式保持一致
+- [x] 2026-07-21 前端发送消息时已按当前会话绑定模型的 `supportsStream` 决定是否调用 `/messages/stream`；Qwen 和豆包开启流式后会走 SSE，未开启流式的模型自动走普通接口
+- [x] 2026-07-21 前端会话列表已增加历史对话删除按钮，并在删除当前会话后自动退出回放、清空消息区和画布工作区
+- [x] 2026-07-21 前端模型选择区已补充“只对新建会话生效”的提示，避免误以为切换下拉框会改变已创建会话的模型
+- [x] 2026-07-21 前端发送消息时会在浏览器控制台输出当前会话模型、`supportsStream` 和回答模式，辅助排查流式链路是否生效
 
 ---
 
@@ -724,7 +741,7 @@
 - [x] `POST /api/sessions`
 - [x] `GET /api/sessions`
 - [x] `GET /api/sessions/{id}`
-- [ ] `DELETE /api/sessions/{id}`
+- [x] `DELETE /api/sessions/{id}`
 
 ### 4.4 消息接口
 

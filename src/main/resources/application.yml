@@ -37,6 +37,12 @@ app:
       timeout-seconds: ${BAILIAN_TIMEOUT_SECONDS:60}
       max-tokens: ${BAILIAN_MAX_TOKENS:3000}
       temperature: ${BAILIAN_TEMPERATURE:0.2}
+    ark:
+      api-key: ${ARK_API_KEY:}
+      base-url: ${ARK_BASE_URL:https://ark.cn-beijing.volces.com/api/v3}
+      timeout-seconds: ${ARK_TIMEOUT_SECONDS:60}
+      max-tokens: ${ARK_MAX_TOKENS:3000}
+      temperature: ${ARK_TEMPERATURE:0.2}
 
 logging:
   level:

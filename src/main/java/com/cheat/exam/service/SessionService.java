@@ -45,6 +45,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -54,6 +56,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class SessionService {
+
+    private static final Logger log = LoggerFactory.getLogger(SessionService.class);
 
     private final ChatSessionRepository chatSessionRepository;
     private final ChatMessageRepository chatMessageRepository;
@@ -164,6 +168,14 @@ public class SessionService {
         );
     }
 
+    @Transactional
+    public void delete(AuthenticatedUser authenticatedUser, Long sessionId) {
+        ChatSession session = findOwnedActiveSession(authenticatedUser, sessionId);
+        session.setStatus("DELETED");
+        session.setLastMessageAt(Instant.now());
+        chatSessionRepository.save(session);
+    }
+
     @Transactional(readOnly = true)
     public List<MessageItemResponse> listMessages(AuthenticatedUser authenticatedUser, Long sessionId) {
         ChatSession session = findOwnedActiveSession(authenticatedUser, sessionId);
@@ -179,6 +191,14 @@ public class SessionService {
         }
 
         ChatSession session = findOwnedActiveSession(authenticatedUser, sessionId);
+        log.info(
+            "Sending message: sessionId={}, userId={}, modelCode={}, mode={}, stream=false, contentLength={}",
+            session.getId(),
+            authenticatedUser.userId(),
+            session.getModelCode(),
+            normalizeGuidanceMode(request.mode()),
+            request.content() == null ? 0 : request.content().length()
+        );
 
         ChatMessage userMessage = new ChatMessage();
         userMessage.setSession(session);
@@ -199,6 +219,15 @@ public class SessionService {
             request.mode(),
             false
         ));
+        log.info(
+            "Model response received: sessionId={}, provider={}, model={}, replyLength={}, guidanceStage={}, teacherIntent={}",
+            session.getId(),
+            modelResponse.providerCode(),
+            modelResponse.modelCode(),
+            modelResponse.replyText() == null ? 0 : modelResponse.replyText().length(),
+            modelResponse.guidanceStage(),
+            modelResponse.teacherIntent()
+        );
 
         ChatMessage assistantMessage = new ChatMessage();
         assistantMessage.setSession(session);
@@ -230,6 +259,7 @@ public class SessionService {
 
         session.setLastMessageAt(savedAssistantMessage.getCreatedAt());
         chatSessionRepository.save(session);
+        log.info("Message send completed: sessionId={}, userMessageId={}, assistantMessageId={}", session.getId(), savedUserMessage.getId(), savedAssistantMessage.getId());
 
         return new SendMessageResponse(
             toMessageItemResponse(savedUserMessage),
@@ -245,6 +275,14 @@ public class SessionService {
         OutputStream outputStream
     ) {
         ChatSession session = findOwnedActiveSession(authenticatedUser, sessionId);
+        log.info(
+            "Streaming message: sessionId={}, userId={}, modelCode={}, mode={}, contentLength={}",
+            session.getId(),
+            authenticatedUser.userId(),
+            session.getModelCode(),
+            normalizeGuidanceMode(request.mode()),
+            request.content() == null ? 0 : request.content().length()
+        );
 
         ChatMessage savedUserMessage = saveUserMessage(session, request.content());
         ModelConfig modelConfig = modelConfigRepository.findByModelCodeAndEnabledTrue(session.getModelCode())
@@ -258,6 +296,13 @@ public class SessionService {
                 buildModelChatRequest(session, modelConfig, request.content(), request.mode(), true),
                 chunk -> writeSseUnchecked(writer, "delta", Map.of("text", chunk))
             );
+            log.info(
+                "Streaming model response completed: sessionId={}, provider={}, model={}, replyLength={}",
+                session.getId(),
+                modelResponse.providerCode(),
+                modelResponse.modelCode(),
+                modelResponse.replyText() == null ? 0 : modelResponse.replyText().length()
+            );
 
             ChatMessage savedAssistantMessage = saveAssistantMessage(session, modelResponse);
             updateGuidanceState(session, request.mode(), modelResponse);
@@ -269,9 +314,12 @@ public class SessionService {
                 toMessageItemResponse(savedAssistantMessage)
             ));
             writer.flush();
+            log.info("Streaming message completed: sessionId={}, userMessageId={}, assistantMessageId={}", session.getId(), savedUserMessage.getId(), savedAssistantMessage.getId());
         } catch (UncheckedIOException ex) {
+            log.warn("Failed to write stream response: sessionId={}, error={}", session.getId(), ex.getMessage());
             throw new ApiException("STREAM_WRITE_FAILED", "Failed to write stream response", HttpStatus.INTERNAL_SERVER_ERROR, ex);
         } catch (IOException ex) {
+            log.warn("Failed to write stream response: sessionId={}, error={}", session.getId(), ex.getMessage());
             throw new ApiException("STREAM_WRITE_FAILED", "Failed to write stream response", HttpStatus.INTERNAL_SERVER_ERROR, ex);
         }
     }

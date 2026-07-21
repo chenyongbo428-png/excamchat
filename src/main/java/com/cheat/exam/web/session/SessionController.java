@@ -17,6 +17,7 @@ import java.io.IOException;
 import java.util.List;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -51,6 +52,12 @@ public class SessionController {
     @GetMapping("/{sessionId}")
     public ApiResponse<SessionDetailResponse> detail(@PathVariable Long sessionId) {
         return ApiResponse.ok(sessionService.detail(SecurityUtils.currentUser(), sessionId));
+    }
+
+    @DeleteMapping("/{sessionId}")
+    public ApiResponse<Boolean> delete(@PathVariable Long sessionId) {
+        sessionService.delete(SecurityUtils.currentUser(), sessionId);
+        return ApiResponse.ok(true);
     }
 
     @PostMapping("/{sessionId}/messages")
