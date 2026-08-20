@@ -22,9 +22,11 @@ class ArkModelClientTests {
     @TempDir
     Path tempDir;
 
+    private final ModelOutputParser modelOutputParser = new ModelOutputParser(new ObjectMapper());
+
     @Test
     void supportsArkProviderSelection() {
-        ArkModelClient client = new ArkModelClient(config("https://ark.cn-beijing.volces.com/api/v3", "test-key"), new ObjectMapper());
+        ArkModelClient client = new ArkModelClient(config("https://ark.cn-beijing.volces.com/api/v3", "test-key"), new ObjectMapper(), modelOutputParser);
 
         assertThat(client.supports(new ModelClientSelection(
             "doubao-seed-2-1-turbo-260628",
@@ -37,7 +39,7 @@ class ArkModelClientTests {
 
     @Test
     void throwsClearErrorWhenApiKeyMissing() {
-        ArkModelClient client = new ArkModelClient(config("https://ark.cn-beijing.volces.com/api/v3", ""), new ObjectMapper());
+        ArkModelClient client = new ArkModelClient(config("https://ark.cn-beijing.volces.com/api/v3", ""), new ObjectMapper(), modelOutputParser);
 
         assertThatThrownBy(() -> client.chat(sampleRequest("doubao-seed-2-1-turbo-260628", null)))
             .isInstanceOf(ApiException.class)
@@ -53,7 +55,7 @@ class ArkModelClientTests {
             int port = server.getAddress().getPort();
             ArkModelClient client = new ArkModelClient(
                 config("http://127.0.0.1:" + port + "/api/v3", "test-key"),
-                new ObjectMapper()
+                new ObjectMapper(), modelOutputParser
             );
 
             ModelChatResponse response = client.chat(sampleRequest("doubao-seed-2-1-turbo-260628", imagePath));
@@ -77,7 +79,7 @@ class ArkModelClientTests {
             int port = server.getAddress().getPort();
             ArkModelClient client = new ArkModelClient(
                 config("http://127.0.0.1:" + port + "/api/v3", "test-key"),
-                new ObjectMapper()
+                new ObjectMapper(), modelOutputParser
             );
             List<String> chunks = new ArrayList<>();
 
@@ -99,6 +101,7 @@ class ArkModelClientTests {
             assertThat(requestBody).contains("\"model\":\"doubao-seed-2-1-turbo-260628\"");
             assertThat(requestBody).contains("data:image/png;base64,");
             assertThat(requestBody).contains("\"max_tokens\"");
+            assertThat(requestBody).contains("\"reasoning_effort\":\"medium\"");
             assertThat(requestBody).contains("引导式讲解模式");
             assertThat(requestBody).contains("不要在第一轮直接给最终答案");
             assertThat(requestBody).contains("先判断学生");
@@ -136,6 +139,7 @@ class ArkModelClientTests {
             assertThat(exchange.getRequestHeaders().getFirst("Authorization")).isEqualTo("Bearer test-key");
             assertThat(requestBody).contains("\"stream\":true");
             assertThat(requestBody).contains("\"model\":\"ep-20260721164323-qjbgk\"");
+            assertThat(requestBody).contains("\"reasoning_effort\":\"medium\"");
 
             String responseBody = """
                 data: {"id":"ark-stream-1","choices":[{"index":0,"delta":{"reasoning_content":"先想","role":"assistant"}}]}
@@ -181,6 +185,7 @@ class ArkModelClientTests {
         properties.getModel().getArk().setTimeoutSeconds(5);
         properties.getModel().getArk().setMaxTokens(200);
         properties.getModel().getArk().setTemperature(0.1);
+        properties.getModel().getArk().setReasoningEffort("medium");
         return properties;
     }
 }

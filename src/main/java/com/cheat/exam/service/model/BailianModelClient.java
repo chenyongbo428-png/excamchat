@@ -50,16 +50,18 @@ public class BailianModelClient implements ModelClient {
     private final AppProperties.Bailian properties;
     private final ObjectMapper objectMapper;
     private final HttpClient httpClient;
+    private final ModelOutputParser modelOutputParser;
 
     @Autowired
-    public BailianModelClient(AppProperties appProperties, ObjectMapper objectMapper) {
-        this(appProperties, objectMapper, HttpClient.newHttpClient());
+    public BailianModelClient(AppProperties appProperties, ObjectMapper objectMapper, ModelOutputParser modelOutputParser) {
+        this(appProperties, objectMapper, HttpClient.newHttpClient(), modelOutputParser);
     }
 
-    BailianModelClient(AppProperties appProperties, ObjectMapper objectMapper, HttpClient httpClient) {
+    BailianModelClient(AppProperties appProperties, ObjectMapper objectMapper, HttpClient httpClient, ModelOutputParser modelOutputParser) {
         this.properties = appProperties.getModel().getBailian();
         this.objectMapper = objectMapper;
         this.httpClient = httpClient;
+        this.modelOutputParser = modelOutputParser;
     }
 
     @Override
@@ -162,6 +164,10 @@ public class BailianModelClient implements ModelClient {
 
     private String buildSystemPrompt(ModelChatRequest request) {
         String businessPrompt = StringUtils.defaultIfBlank(request.systemPrompt(), "你是一位耐心的引导型老师。");
+        // 评估器模式：直接使用业务 Prompt，不追加任何模式指令（评估器需要 JSON 输出）
+        if ("evaluate".equalsIgnoreCase(StringUtils.trimToEmpty(request.guidanceMode()))) {
+            return businessPrompt;
+        }
         if ("direct".equalsIgnoreCase(StringUtils.trimToEmpty(request.guidanceMode()))) {
             return businessPrompt + """
 
@@ -177,13 +183,17 @@ public class BailianModelClient implements ModelClient {
             2. 首轮只做三件事：识别题意，列出关键已知条件，提出一个学生可以立刻回答的小问题。
             3. 多轮对话时，先判断学生上一条回答是否正确；正确则推进下一小步，错误则指出卡点并给一个更具体的提示。
             4. 只有当学生已经完成关键推理、连续多轮卡住，或明确要求总结时，才可以给阶段性总结；即便总结也要先解释思路，再给结论。
-            5. 请不要输出 JSON，不要输出 Markdown 代码块，不要生成画布标注协议；直接输出学生可读的中文自然语言。
+            5. 先输出学生可读的中文自然语言讲解；如果业务 Prompt 要求画布标注，在讲解文本末尾另起一行输出标注 JSON，格式严格遵循业务 Prompt 约定。
             6. 每次回复尽量短一些，聚焦一个问题或一个提示，避免一次讲完。
             """.formatted(businessPrompt);
     }
 
     private String buildCurrentUserText(ModelChatRequest request) {
         String userMessage = StringUtils.defaultIfBlank(request.currentUserMessage(), "请讲解这道题。");
+        // 评估器模式：直接返回用户消息，不追加引导指令
+        if ("evaluate".equalsIgnoreCase(StringUtils.trimToEmpty(request.guidanceMode()))) {
+            return userMessage;
+        }
         long userMessageCount = countPreviousUserMessages(request.messages(), request.currentUserMessage());
         boolean directMode = "direct".equalsIgnoreCase(StringUtils.trimToEmpty(request.guidanceMode()));
         String guidanceInstruction = directMode
@@ -340,7 +350,10 @@ public class BailianModelClient implements ModelClient {
                     String delta = chunk.path("choices").path(0).path("delta").path("content").asText("");
                     if (StringUtils.isNotEmpty(delta)) {
                         fullText.append(delta);
-                        chunkConsumer.accept(delta);
+                        // 进入标注区后不再向前端推送 JSON 元数据片段
+                        if (!modelOutputParser.enteredAnnotationSection(fullText.toString())) {
+                            chunkConsumer.accept(delta);
+                        }
                     }
                 }
             }
@@ -356,11 +369,27 @@ public class BailianModelClient implements ModelClient {
     }
 
     private ModelChatResponse toPlainTextResponse(ModelChatRequest request, String content, String providerRequestId) {
-        Map<String, Object> businessPayload = fallbackPayload(content);
+        ModelOutputParser.ParseResult parsed = modelOutputParser.parse(content);
+        Map<String, Object> businessPayload;
+        String replyText;
+        if (parsed.hasAnnotationSection()) {
+            replyText = parsed.replyText();
+            businessPayload = new LinkedHashMap<>();
+            businessPayload.put("replyText", replyText);
+            businessPayload.put("guidanceStage", DEFAULT_GUIDANCE_STAGE);
+            businessPayload.put("hintLevel", 1);
+            businessPayload.put("teacherIntent", DEFAULT_TEACHER_INTENT);
+            businessPayload.put("shouldRevealFinalAnswer", false);
+            businessPayload.put("annotations", parsed.annotations());
+        } else {
+            // 无分隔符：回退到整体 JSON 解析或纯文本兜底
+            businessPayload = parseBusinessPayload(content);
+            replyText = StringUtils.defaultIfBlank(stringValue(businessPayload.get("replyText")), content);
+        }
         return new ModelChatResponse(
             providerCode(),
             request.modelCode(),
-            StringUtils.defaultIfBlank(content, "模型没有返回有效内容，请稍后重试。"),
+            StringUtils.defaultIfBlank(replyText, "模型没有返回有效内容，请稍后重试。"),
             intValue(businessPayload.get("hintLevel"), 1),
             StringUtils.defaultIfBlank(stringValue(businessPayload.get("guidanceStage")), DEFAULT_GUIDANCE_STAGE),
             StringUtils.defaultIfBlank(stringValue(businessPayload.get("teacherIntent")), DEFAULT_TEACHER_INTENT),
@@ -408,6 +437,19 @@ public class BailianModelClient implements ModelClient {
     }
 
     private Map<String, Object> parseBusinessPayload(String content) {
+        // 优先检测分隔符格式（讲解文本 + ---ANNOTATIONS_JSON--- + 标注 JSON）
+        ModelOutputParser.ParseResult parsed = modelOutputParser.parse(content);
+        if (parsed.hasAnnotationSection()) {
+            Map<String, Object> payload = new LinkedHashMap<>();
+            payload.put("replyText", parsed.replyText());
+            payload.put("guidanceStage", DEFAULT_GUIDANCE_STAGE);
+            payload.put("hintLevel", 1);
+            payload.put("teacherIntent", DEFAULT_TEACHER_INTENT);
+            payload.put("shouldRevealFinalAnswer", false);
+            payload.put("annotations", parsed.annotations());
+            return payload;
+        }
+        // 回退：尝试整体 JSON 解析（兼容旧格式或模型直接输出 JSON 的情况）
         String json = extractJsonObject(content);
         if (StringUtils.isBlank(json)) {
             return fallbackPayload(content);

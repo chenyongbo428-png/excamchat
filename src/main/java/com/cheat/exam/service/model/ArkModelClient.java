@@ -42,16 +42,18 @@ public class ArkModelClient implements ModelClient {
     private final AppProperties.Ark properties;
     private final ObjectMapper objectMapper;
     private final HttpClient httpClient;
+    private final ModelOutputParser modelOutputParser;
 
     @Autowired
-    public ArkModelClient(AppProperties appProperties, ObjectMapper objectMapper) {
-        this(appProperties, objectMapper, HttpClient.newHttpClient());
+    public ArkModelClient(AppProperties appProperties, ObjectMapper objectMapper, ModelOutputParser modelOutputParser) {
+        this(appProperties, objectMapper, HttpClient.newHttpClient(), modelOutputParser);
     }
 
-    ArkModelClient(AppProperties appProperties, ObjectMapper objectMapper, HttpClient httpClient) {
+    ArkModelClient(AppProperties appProperties, ObjectMapper objectMapper, HttpClient httpClient, ModelOutputParser modelOutputParser) {
         this.properties = appProperties.getModel().getArk();
         this.objectMapper = objectMapper;
         this.httpClient = httpClient;
+        this.modelOutputParser = modelOutputParser;
     }
 
     @Override
@@ -130,10 +132,19 @@ public class ArkModelClient implements ModelClient {
         body.put("messages", buildMessages(request));
         body.put("temperature", properties.getTemperature());
         body.put("max_tokens", properties.getMaxTokens());
+        body.put("reasoning_effort", normalizeReasoningEffort(properties.getReasoningEffort()));
         if (request.streamRequested()) {
             body.put("stream", true);
         }
         return body;
+    }
+
+    private String normalizeReasoningEffort(String reasoningEffort) {
+        String normalized = StringUtils.trimToEmpty(reasoningEffort).toLowerCase();
+        return switch (normalized) {
+            case "minimal", "low", "medium", "high" -> normalized;
+            default -> "medium";
+        };
     }
 
     private List<Map<String, Object>> buildMessages(ModelChatRequest request) {
@@ -168,6 +179,10 @@ public class ArkModelClient implements ModelClient {
 
     private String buildSystemPrompt(ModelChatRequest request) {
         String businessPrompt = StringUtils.defaultIfBlank(request.systemPrompt(), "你是一位耐心的引导型老师。");
+        // 评估器模式：直接使用业务 Prompt，不追加任何模式指令（评估器需要 JSON 输出）
+        if ("evaluate".equalsIgnoreCase(StringUtils.trimToEmpty(request.guidanceMode()))) {
+            return businessPrompt;
+        }
         if ("direct".equalsIgnoreCase(StringUtils.trimToEmpty(request.guidanceMode()))) {
             return businessPrompt + """
 
@@ -183,13 +198,17 @@ public class ArkModelClient implements ModelClient {
             2. 首轮只做三件事：识别题意，列出关键已知条件，提出一个学生可以立刻回答的小问题。
             3. 多轮对话时，先判断学生上一条回答是否正确；正确则推进下一小步，错误则指出卡点并给一个更具体的提示。
             4. 只有当学生已经完成关键推理、连续多轮卡住，或明确要求总结时，才可以给阶段性总结。
-            5. 请不要输出 JSON，不要输出 Markdown 代码块，不要生成画布标注协议；直接输出学生可读的中文自然语言。
+            5. 先输出学生可读的中文自然语言讲解；如果业务 Prompt 要求画布标注，在讲解文本末尾另起一行输出标注 JSON，格式严格遵循业务 Prompt 约定。
             6. 每次回复聚焦一个问题或一个提示，避免一次讲完。
             """.formatted(businessPrompt);
     }
 
     private String buildCurrentUserText(ModelChatRequest request) {
         String userMessage = StringUtils.defaultIfBlank(request.currentUserMessage(), "请讲解这道题。");
+        // 评估器模式：直接返回用户消息，不追加引导指令
+        if ("evaluate".equalsIgnoreCase(StringUtils.trimToEmpty(request.guidanceMode()))) {
+            return userMessage;
+        }
         long userMessageCount = countPreviousUserMessages(request.messages(), request.currentUserMessage());
         boolean directMode = "direct".equalsIgnoreCase(StringUtils.trimToEmpty(request.guidanceMode()));
         String guidanceInstruction = directMode
@@ -356,7 +375,10 @@ public class ArkModelClient implements ModelClient {
                     }
                     if (StringUtils.isNotEmpty(delta)) {
                         fullText.append(delta);
-                        chunkConsumer.accept(delta);
+                        // 进入标注区后不再向前端推送 JSON 元数据片段，避免学生看到标注协议原文
+                        if (!modelOutputParser.enteredAnnotationSection(fullText.toString())) {
+                            chunkConsumer.accept(delta);
+                        }
                     }
                 }
             }
@@ -389,7 +411,7 @@ public class ArkModelClient implements ModelClient {
             log.info("Parsed Ark response: providerRequestId={}, contentLength={}, contentPreview={}", providerRequestId, content.length(), truncateForLog(content));
             Map<String, Object> rawPayload = objectMapper.readValue(responseBody, new TypeReference<>() {
             });
-            Map<String, Object> businessPayload = fallbackPayload(content);
+            Map<String, Object> businessPayload = buildBusinessPayload(content);
             businessPayload.put("rawProviderPayload", rawPayload);
             return toResponse(request, businessPayload, providerRequestId);
         } catch (JsonProcessingException ex) {
@@ -399,7 +421,24 @@ public class ArkModelClient implements ModelClient {
     }
 
     private ModelChatResponse toPlainTextResponse(ModelChatRequest request, String content, String providerRequestId) {
-        return toResponse(request, fallbackPayload(content), providerRequestId);
+        return toResponse(request, buildBusinessPayload(content), providerRequestId);
+    }
+
+    /**
+     * 从模型原始输出构建业务 payload，提取讲解文本与画布标注。
+     * 模型输出格式：讲解文本 + 分隔符 + 标注 JSON；无分隔符时整段作为讲解文本。
+     */
+    private Map<String, Object> buildBusinessPayload(String content) {
+        ModelOutputParser.ParseResult parsed = modelOutputParser.parse(content);
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("replyText", parsed.replyText());
+        payload.put("guidanceStage", DEFAULT_GUIDANCE_STAGE);
+        payload.put("hintLevel", 1);
+        payload.put("teacherIntent", DEFAULT_TEACHER_INTENT);
+        payload.put("shouldRevealFinalAnswer", false);
+        payload.put("annotations", parsed.annotations());
+        payload.put("hasAnnotationSection", parsed.hasAnnotationSection());
+        return payload;
     }
 
     private ModelChatResponse toResponse(ModelChatRequest request, Map<String, Object> payload, String providerRequestId) {
@@ -411,22 +450,24 @@ public class ArkModelClient implements ModelClient {
             StringUtils.defaultIfBlank(stringValue(payload.get("guidanceStage")), DEFAULT_GUIDANCE_STAGE),
             StringUtils.defaultIfBlank(stringValue(payload.get("teacherIntent")), DEFAULT_TEACHER_INTENT),
             booleanValue(payload.get("shouldRevealFinalAnswer"), false),
-            List.of(),
+            listOfAnnotations(payload.get("annotations")),
             payload,
             providerRequestId
         );
     }
 
-    private Map<String, Object> fallbackPayload(String content) {
-        Map<String, Object> fallback = new LinkedHashMap<>();
-        fallback.put("replyText", StringUtils.defaultIfBlank(content, "模型没有返回有效内容，请稍后重试。").trim());
-        fallback.put("guidanceStage", DEFAULT_GUIDANCE_STAGE);
-        fallback.put("hintLevel", 1);
-        fallback.put("teacherIntent", DEFAULT_TEACHER_INTENT);
-        fallback.put("shouldRevealFinalAnswer", false);
-        fallback.put("annotations", List.of());
-        fallback.put("parseFallback", true);
-        return fallback;
+    @SuppressWarnings("unchecked")
+    private List<Map<String, Object>> listOfAnnotations(Object value) {
+        if (!(value instanceof List<?> list)) {
+            return List.of();
+        }
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (Object item : list) {
+            if (item instanceof Map<?, ?> map) {
+                result.add((Map<String, Object>) map);
+            }
+        }
+        return result;
     }
 
     private String providerErrorMessage(String prefix, int statusCode, String responseBody) {

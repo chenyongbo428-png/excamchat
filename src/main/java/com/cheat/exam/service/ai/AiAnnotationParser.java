@@ -47,12 +47,13 @@ public class AiAnnotationParser {
             return java.util.Optional.empty();
         }
         String type = StringUtils.defaultString(asString(annotation.get("type"))).toLowerCase(Locale.ROOT);
-        if (!List.of("rect", "arrow", "text", "highlight").contains(type)) {
+        if (!List.of("rect", "arrow", "text", "highlight", "line", "circle").contains(type)) {
             return java.util.Optional.empty();
         }
 
-        int imageWidth = safeDimension(session.getImage().getWidth());
-        int imageHeight = safeDimension(session.getImage().getHeight());
+        // 模型标注使用 0~1000 归一化坐标系（与引导 Prompt 标注协议一致），裁剪边界统一为 1000
+        int imageWidth = 1000;
+        int imageHeight = 1000;
         String annotationId = StringUtils.firstNonBlank(
             asString(annotation.get("annotationId")),
             asString(annotation.get("id")),
@@ -88,6 +89,23 @@ public class AiAnnotationParser {
         } else if ("text".equals(type)) {
             if (!putTextFields(object, annotation, imageWidth, imageHeight)) {
                 return java.util.Optional.empty();
+            }
+        } else if ("line".equals(type)) {
+            if (!putLineFields(object, annotation, imageWidth, imageHeight)) {
+                return java.util.Optional.empty();
+            }
+            if (Boolean.TRUE.equals(asBoolean(annotation.get("dashed")))) {
+                object.put("dashed", true);
+            }
+            if (StringUtils.isNotBlank(asString(annotation.get("label")))) {
+                object.put("label", asString(annotation.get("label")));
+            }
+        } else if ("circle".equals(type)) {
+            if (!putCircleFields(object, annotation, imageWidth, imageHeight)) {
+                return java.util.Optional.empty();
+            }
+            if (StringUtils.isNotBlank(asString(annotation.get("label")))) {
+                object.put("label", asString(annotation.get("label")));
             }
         }
 
@@ -144,6 +162,39 @@ public class AiAnnotationParser {
         return true;
     }
 
+    private boolean putLineFields(Map<String, Object> object, Map<String, Object> annotation, int imageWidth, int imageHeight) {
+        if (!annotation.containsKey("toX") || !annotation.containsKey("toY")) {
+            return false;
+        }
+        object.put("x", clampCoordinate(asDouble(annotation.get("x")), imageWidth));
+        object.put("y", clampCoordinate(asDouble(annotation.get("y")), imageHeight));
+        object.put("toX", clampCoordinate(asDouble(annotation.get("toX")), imageWidth));
+        object.put("toY", clampCoordinate(asDouble(annotation.get("toY")), imageHeight));
+        return true;
+    }
+
+    private boolean putCircleFields(Map<String, Object> object, Map<String, Object> annotation, int imageWidth, int imageHeight) {
+        double x = clampCoordinate(asDouble(annotation.get("x")), imageWidth);
+        double y = clampCoordinate(asDouble(annotation.get("y")), imageHeight);
+        double radius = asDouble(annotation.get("radius"));
+        if (radius <= 0) {
+            return false;
+        }
+        if (imageWidth > 0) {
+            radius = Math.min(radius, Math.max(0, imageWidth - x));
+        }
+        if (imageHeight > 0) {
+            radius = Math.min(radius, Math.max(0, imageHeight - y));
+        }
+        if (radius <= 0) {
+            return false;
+        }
+        object.put("x", x);
+        object.put("y", y);
+        object.put("radius", radius);
+        return true;
+    }
+
     @SuppressWarnings("unchecked")
     private Map<String, Object> buildStyle(String type, Map<String, Object> annotation) {
         Map<String, Object> incomingStyle = annotation.get("style") instanceof Map<?, ?> map
@@ -176,11 +227,21 @@ public class AiAnnotationParser {
             style.put("opacity", opacity);
         } else {
             style.put("strokeColor", color);
-            style.put("fillColor", "rect".equals(type) ? "transparent" : color);
+            style.put("fillColor", ("rect".equals(type) || "line".equals(type) || "circle".equals(type)) ? "transparent" : color);
             style.put("strokeWidth", strokeWidth);
             style.put("opacity", opacity);
         }
         return style;
+    }
+
+    private boolean asBoolean(Object value) {
+        if (value instanceof Boolean bool) {
+            return bool;
+        }
+        if (value instanceof String text) {
+            return "true".equalsIgnoreCase(text) || "1".equals(text) || "yes".equalsIgnoreCase(text);
+        }
+        return false;
     }
 
     private Map<String, Object> buildMeta(Long messageId, String annotationId, String teacherIntent) {

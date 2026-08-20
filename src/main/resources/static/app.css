@@ -94,11 +94,21 @@ body {
 }
 
 .shell {
-    display: grid;
-    grid-template-columns: minmax(320px, 380px) minmax(0, 1fr);
+    display: flex;
+    flex-direction: column;
     gap: 24px;
     padding: 24px;
     min-height: 100vh;
+}
+
+.top-area {
+    width: 100%;
+}
+
+.bottom-area {
+    display: grid;
+    grid-template-columns: minmax(280px, 340px) minmax(0, 1fr);
+    gap: 24px;
     align-items: start;
 }
 
@@ -107,6 +117,45 @@ body {
     display: flex;
     flex-direction: column;
     gap: 24px;
+}
+
+.upload-inline {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.model-select-inline select {
+    padding: 4px 8px;
+    font-size: 13px;
+    border-radius: 6px;
+    border: 1px solid var(--line);
+}
+
+.toolbar-separator {
+    width: 1px;
+    height: 20px;
+    background: var(--line);
+    margin: 0 4px;
+}
+
+.toolbar-control {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+}
+
+.toolbar-control input[type="color"] {
+    width: 24px;
+    height: 24px;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+}
+
+.toolbar-control input[type="range"] {
+    width: 60px;
 }
 
 .panel {
@@ -425,6 +474,48 @@ button.small {
     color: var(--muted);
 }
 
+.hint-limit-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 12px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    background: rgba(195, 84, 51, 0.06);
+    border: 1px solid rgba(195, 84, 51, 0.2);
+}
+
+.hint-limit-notice {
+    font-size: 13px;
+    color: var(--muted);
+    flex: 1;
+}
+
+.hint-limit-btn {
+    padding: 6px 14px;
+    border-radius: 6px;
+    border: 1px solid var(--accent);
+    background: #fff;
+    color: var(--accent);
+    font-size: 13px;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+}
+
+.hint-limit-btn:hover {
+    background: var(--accent);
+    color: #fff;
+}
+
+.hint-limit-btn-answer {
+    background: var(--accent);
+    color: #fff;
+}
+
+.hint-limit-btn-answer:hover {
+    background: #a83420;
+}
+
 .message-form {
     display: flex;
     flex-direction: column;
@@ -622,7 +713,7 @@ button.small {
 }
 
 .canvas-panel {
-    min-height: 520px;
+    min-height: 360px;
 }
 
 .canvas-header {
@@ -672,7 +763,8 @@ button.small {
     background-position: 0 0, 0 11px, 11px -11px, -11px 0;
     padding: 16px;
     overflow: auto;
-    min-height: 340px;
+    min-height: 240px;
+    max-height: 420px;
 }
 
 .canvas-stage {
@@ -705,10 +797,6 @@ button.small {
 }
 
 .canvas-footer {
-    display: grid;
-    grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
-    gap: 16px;
-    align-items: stretch;
     margin-top: 14px;
 }
 

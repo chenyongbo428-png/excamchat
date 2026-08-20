@@ -109,9 +109,10 @@ public class AppProperties {
     public static final class Ark {
         private String apiKey;
         private String baseUrl = "https://ark.cn-beijing.volces.com/api/v3";
-        private int timeoutSeconds = 60;
+        private int timeoutSeconds = 180;
         private int maxTokens = 3000;
         private double temperature = 0.2;
+        private String reasoningEffort = "low";
 
         public String getApiKey() {
             return apiKey;
@@ -151,6 +152,14 @@ public class AppProperties {
 
         public void setTemperature(double temperature) {
             this.temperature = temperature;
+        }
+
+        public String getReasoningEffort() {
+            return reasoningEffort;
+        }
+
+        public void setReasoningEffort(String reasoningEffort) {
+            this.reasoningEffort = reasoningEffort;
         }
     }
 }

@@ -24,6 +24,7 @@
         canvasObjects: [],
         canvasHistory: [],
         drawing: null,
+        selectedObject: null,
         replay: {
             loaded: false,
             active: false,
@@ -41,10 +42,6 @@
         uploadForm: document.getElementById("uploadForm"),
         imageFileInput: document.getElementById("imageFileInput"),
         imageMeta: document.getElementById("imageMeta"),
-        createSessionForm: document.getElementById("createSessionForm"),
-        sessionTitleInput: document.getElementById("sessionTitleInput"),
-        subjectCodeInput: document.getElementById("subjectCodeInput"),
-        gradeLevelInput: document.getElementById("gradeLevelInput"),
         refreshSessionsBtn: document.getElementById("refreshSessionsBtn"),
         sessionList: document.getElementById("sessionList"),
         sessionHeading: document.getElementById("sessionHeading"),
@@ -69,6 +66,7 @@
         sizeInput: document.getElementById("sizeInput"),
         canvasExport: document.getElementById("canvasExport"),
         clearCanvasBtn: document.getElementById("clearCanvasBtn"),
+        clearAiBtn: document.getElementById("clearAiBtn"),
         undoCanvasBtn: document.getElementById("undoCanvasBtn"),
         exportCanvasBtn: document.getElementById("exportCanvasBtn"),
         toast: document.getElementById("toast"),
@@ -376,7 +374,7 @@
             return;
         }
 
-        state.messages.forEach(function (message) {
+        state.messages.forEach(function (message, index) {
             const card = document.createElement("article");
             card.className = "message-card " + String(message.roleCode || "assistant").toLowerCase() +
                 (message.streaming ? " streaming" : "");
@@ -387,6 +385,20 @@
             const bodyHtml = String(message.roleCode || "").toUpperCase() === "ASSISTANT"
                 ? renderRichText(message.contentText || "")
                 : '<p>' + escapeHtml(message.contentText || "") + "</p>";
+
+            // 提示上限交互按钮：仅在最后一条助手消息且 hintLimitReached 时显示
+            const isLastAssistant = String(message.roleCode || "").toUpperCase() === "ASSISTANT"
+                && index === state.messages.length - 1;
+            const showHintLimitButtons = isLastAssistant && message.hintLimitReached
+                && state.answerMode === "guided" && !message.streaming;
+            const hintLimitHtml = showHintLimitButtons
+                ? '<div class="hint-limit-actions">' +
+                    '<span class="hint-limit-notice">提示次数已达上限，你可以：</span>' +
+                    '<button class="hint-limit-btn" data-action="next-step">看下一步</button>' +
+                    '<button class="hint-limit-btn hint-limit-btn-answer" data-action="show-answer">看答案</button>' +
+                  '</div>'
+                : "";
+
             card.innerHTML = [
                 '<div class="message-role">' + escapeHtml(message.roleCode || "") + "</div>",
                 '<div class="message-body">' + bodyHtml + "</div>",
@@ -396,11 +408,34 @@
                     (message.teacherIntent ? " · " + escapeHtml(message.teacherIntent) : "") +
                     (message.createdAt ? " · " + escapeHtml(formatDateTime(message.createdAt)) : "") +
                 "</div>",
-                tags ? '<div class="annotation-tags">' + tags + "</div>" : ""
+                tags ? '<div class="annotation-tags">' + tags + "</div>" : "",
+                hintLimitHtml
             ].join("");
             dom.messageList.appendChild(card);
+
+            // 绑定提示上限按钮事件
+            if (showHintLimitButtons) {
+                card.querySelectorAll(".hint-limit-btn").forEach(function (btn) {
+                    btn.addEventListener("click", function () {
+                        const action = btn.dataset.action;
+                        if (action === "next-step") {
+                            sendHintLimitMessage("看下一步");
+                        } else if (action === "show-answer") {
+                            sendHintLimitMessage("看答案");
+                        }
+                    });
+                });
+            }
         });
         dom.messageList.scrollTop = dom.messageList.scrollHeight;
+    }
+
+    function sendHintLimitMessage(text) {
+        if (state.sendingMessage || !state.currentSessionId) {
+            return;
+        }
+        dom.messageInput.value = text;
+        dom.messageForm.dispatchEvent(new Event("submit", { cancelable: true }));
     }
 
     function stopReplayTimer() {
@@ -525,20 +560,21 @@
         state.canvasObjects = [];
         state.canvasHistory = [JSON.stringify(state.canvasObjects)];
         state.drawing = null;
+        state.selectedObject = null;
     }
 
     function toImageX(canvasX) {
-        if (!dom.annotationCanvas.width || !state.currentImageNaturalWidth) {
+        if (!dom.annotationCanvas.width) {
             return canvasX || 0;
         }
-        return (Number(canvasX || 0) / dom.annotationCanvas.width) * state.currentImageNaturalWidth;
+        return (Number(canvasX || 0) / dom.annotationCanvas.width) * 1000;
     }
 
     function toImageY(canvasY) {
-        if (!dom.annotationCanvas.height || !state.currentImageNaturalHeight) {
+        if (!dom.annotationCanvas.height) {
             return canvasY || 0;
         }
-        return (Number(canvasY || 0) / dom.annotationCanvas.height) * state.currentImageNaturalHeight;
+        return (Number(canvasY || 0) / dom.annotationCanvas.height) * 1000;
     }
 
     function toImageWidth(canvasWidth) {
@@ -573,7 +609,7 @@
                     layerId: "ai-layer",
                     layerType: "AI",
                     visible: true,
-                    locked: true,
+                    locked: false,
                     objects: state.aiAnnotations.map(toProtocolObject)
                 },
                 {
@@ -618,6 +654,24 @@
             protocolObject.y = toImageY(object.y);
             protocolObject.toX = toImageX(object.toX);
             protocolObject.toY = toImageY(object.toY);
+            if (object.label) {
+                protocolObject.label = object.label;
+            }
+        } else if (object.type === "line") {
+            protocolObject.x = toImageX(object.x);
+            protocolObject.y = toImageY(object.y);
+            protocolObject.toX = toImageX(object.toX);
+            protocolObject.toY = toImageY(object.toY);
+            if (object.dashed) {
+                protocolObject.dashed = true;
+            }
+            if (object.label) {
+                protocolObject.label = object.label;
+            }
+        } else if (object.type === "circle") {
+            protocolObject.x = toImageX(object.x);
+            protocolObject.y = toImageY(object.y);
+            protocolObject.radius = toImageWidth(object.radius || Math.max(1, Math.abs(object.toX - object.x)));
             if (object.label) {
                 protocolObject.label = object.label;
             }
@@ -668,6 +722,18 @@
             converted.y = toCanvasY(object.y);
             converted.toX = toCanvasX(object.toX);
             converted.toY = toCanvasY(object.toY);
+        } else if (type === "line") {
+            converted.x = toCanvasX(object.x);
+            converted.y = toCanvasY(object.y);
+            converted.toX = toCanvasX(object.toX);
+            converted.toY = toCanvasY(object.toY);
+            if (object.dashed) {
+                converted.dashed = true;
+            }
+        } else if (type === "circle") {
+            converted.x = toCanvasX(object.x);
+            converted.y = toCanvasY(object.y);
+            converted.radius = toCanvasWidth(object.radius);
         } else if (type === "text") {
             converted.x = toCanvasX(object.x);
             converted.y = toCanvasY(object.y);
@@ -971,18 +1037,12 @@
         redrawCanvas();
     }
 
-    function toCanvasX(rawX) {
-        if (!state.currentImageNaturalWidth) {
-            return Number(rawX || 0);
-        }
-        return (Number(rawX || 0) / state.currentImageNaturalWidth) * dom.annotationCanvas.width;
+    function toCanvasX(normX) {
+        return (Number(normX || 0) / 1000) * dom.annotationCanvas.width;
     }
 
-    function toCanvasY(rawY) {
-        if (!state.currentImageNaturalHeight) {
-            return Number(rawY || 0);
-        }
-        return (Number(rawY || 0) / state.currentImageNaturalHeight) * dom.annotationCanvas.height;
+    function toCanvasY(normY) {
+        return (Number(normY || 0) / 1000) * dom.annotationCanvas.height;
     }
 
     function toCanvasWidth(rawWidth) {
@@ -1093,6 +1153,40 @@
             canvasContext.font = "18px sans-serif";
             canvasContext.fillText(annotation.text || annotation.label || "AI 标注", x, y);
             canvasContext.restore();
+            return;
+        }
+
+        if (type === "line") {
+            const x = toCanvasX(annotation.x);
+            const y = toCanvasY(annotation.y);
+            const toX = toCanvasX(annotation.toX);
+            const toY = toCanvasY(annotation.toY);
+            canvasContext.save();
+            canvasContext.strokeStyle = color;
+            canvasContext.lineWidth = lineWidth;
+            canvasContext.setLineDash(annotation.dashed ? [10, 6] : []);
+            canvasContext.beginPath();
+            canvasContext.moveTo(x, y);
+            canvasContext.lineTo(toX, toY);
+            canvasContext.stroke();
+            canvasContext.restore();
+            drawLabel(annotation.label, Math.min(x, toX), Math.min(y, toY), color);
+            return;
+        }
+
+        if (type === "circle") {
+            const x = toCanvasX(annotation.x);
+            const y = toCanvasY(annotation.y);
+            const radius = Math.max(1, toCanvasWidth(annotation.radius) || toCanvasHeight(annotation.radius));
+            canvasContext.save();
+            canvasContext.strokeStyle = color;
+            canvasContext.lineWidth = lineWidth;
+            canvasContext.setLineDash([10, 6]);
+            canvasContext.beginPath();
+            canvasContext.arc(x, y, radius, 0, Math.PI * 2);
+            canvasContext.stroke();
+            canvasContext.restore();
+            drawLabel(annotation.label, x, y - radius, color);
         }
     }
 
@@ -1129,6 +1223,15 @@
         } else if (object.type === "text") {
             canvasContext.font = "20px sans-serif";
             canvasContext.fillText(object.text || "文字", object.x, object.y);
+        } else if (object.type === "line") {
+            canvasContext.beginPath();
+            canvasContext.moveTo(object.x, object.y);
+            canvasContext.lineTo(object.toX, object.toY);
+            canvasContext.stroke();
+        } else if (object.type === "circle") {
+            canvasContext.beginPath();
+            canvasContext.arc(object.x, object.y, Math.max(1, object.radius || 10), 0, Math.PI * 2);
+            canvasContext.stroke();
         }
 
         canvasContext.restore();
@@ -1140,6 +1243,9 @@
         state.canvasObjects.forEach(drawUserObject);
         if (state.drawing && state.drawing.preview) {
             drawUserObject(state.drawing.preview);
+        }
+        if (state.selectedObject) {
+            drawSelectionOutline(state.selectedObject);
         }
         dom.canvasExport.textContent = JSON.stringify(buildCanvasExportPayload(), null, 2);
     }
@@ -1271,6 +1377,23 @@
             return;
         }
 
+        if (state.canvasTool === "select") {
+            const hit = hitTest(point);
+            if (hit) {
+                state.selectedObject = { layerType: hit.layerType, index: hit.index };
+                state.drawing = {
+                    type: "select",
+                    start: point,
+                    hit: hit,
+                    moved: false
+                };
+            } else {
+                state.selectedObject = null;
+            }
+            redrawCanvas();
+            return;
+        }
+
         state.drawing = {
             type: state.canvasTool,
             start: point,
@@ -1314,6 +1437,37 @@
                 color: state.drawing.color,
                 size: state.drawing.size
             };
+        } else if (state.drawing.type === "line") {
+            state.drawing.preview = {
+                type: "line",
+                x: state.drawing.start.x,
+                y: state.drawing.start.y,
+                toX: point.x,
+                toY: point.y,
+                color: state.drawing.color,
+                size: state.drawing.size
+            };
+        } else if (state.drawing.type === "circle") {
+            const dx = point.x - state.drawing.start.x;
+            const dy = point.y - state.drawing.start.y;
+            state.drawing.preview = {
+                type: "circle",
+                x: state.drawing.start.x,
+                y: state.drawing.start.y,
+                radius: Math.sqrt(dx * dx + dy * dy),
+                color: state.drawing.color,
+                size: state.drawing.size
+            };
+        } else if (state.drawing.type === "select") {
+            if (state.drawing.hit) {
+                const dx = point.x - state.drawing.start.x;
+                const dy = point.y - state.drawing.start.y;
+                moveObject(state.drawing.hit, dx, dy);
+                state.drawing.moved = true;
+                state.drawing.start = point;
+            }
+            redrawCanvas();
+            return;
         }
 
         redrawCanvas();
@@ -1321,6 +1475,23 @@
 
     async function handleCanvasUp() {
         if (!state.drawing) {
+            return;
+        }
+
+        if (state.drawing.type === "select") {
+            const wasMoved = state.drawing.moved;
+            const hit = state.drawing.hit;
+            state.drawing = null;
+            if (wasMoved && hit) {
+                pushCanvasHistory();
+                const objects = hit.layerType === "AI" ? state.aiAnnotations : state.canvasObjects;
+                const target = objects[hit.index];
+                if (target) {
+                    await appendCanvasOperation("UPDATE_OBJECT", hit.layerType, toProtocolObject(target));
+                }
+                await saveCanvasSnapshot();
+            }
+            redrawCanvas();
             return;
         }
 
@@ -1357,6 +1528,189 @@
             await appendCanvasOperation("ADD_OBJECT", "USER", toProtocolObject(latestObject));
         }
         await saveCanvasSnapshot();
+    }
+
+    function hitTest(point) {
+        const userHit = findHitObject(state.canvasObjects, point);
+        if (userHit) {
+            return { layerType: "USER", index: userHit.index, object: userHit.object };
+        }
+        const aiHit = findHitObject(state.aiAnnotations, point);
+        if (aiHit) {
+            return { layerType: "AI", index: aiHit.index, object: aiHit.object };
+        }
+        return null;
+    }
+
+    function findHitObject(objects, point) {
+        const tolerance = 10;
+        for (let i = objects.length - 1; i >= 0; i--) {
+            const object = objects[i];
+            const type = String(object.type || "").toLowerCase();
+            if (type === "rect" || type === "highlight") {
+                if (point.x >= object.x - tolerance && point.x <= object.x + object.width + tolerance &&
+                    point.y >= object.y - tolerance && point.y <= object.y + object.height + tolerance) {
+                    return { index: i, object: object };
+                }
+            } else if (type === "line" || type === "arrow") {
+                if (distanceToSegment(point, { x: object.x, y: object.y }, { x: object.toX, y: object.toY }) < tolerance) {
+                    return { index: i, object: object };
+                }
+            } else if (type === "circle") {
+                const radius = Math.max(1, object.radius || 10);
+                const distance = Math.sqrt((point.x - object.x) ** 2 + (point.y - object.y) ** 2);
+                if (distance > radius - tolerance && distance < radius + tolerance) {
+                    return { index: i, object: object };
+                }
+            } else if (type === "text") {
+                if (Math.abs(point.x - object.x) < 40 && Math.abs(point.y - object.y) < 20) {
+                    return { index: i, object: object };
+                }
+            } else if (type === "pen") {
+                const points = object.points || [];
+                for (let j = 0; j < points.length; j++) {
+                    if (Math.abs(point.x - points[j].x) < tolerance && Math.abs(point.y - points[j].y) < tolerance) {
+                        return { index: i, object: object };
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    function distanceToSegment(point, a, b) {
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const lengthSquared = dx * dx + dy * dy;
+        if (lengthSquared === 0) {
+            return Math.sqrt((point.x - a.x) ** 2 + (point.y - a.y) ** 2);
+        }
+        let t = ((point.x - a.x) * dx + (point.y - a.y) * dy) / lengthSquared;
+        t = Math.max(0, Math.min(1, t));
+        const px = a.x + t * dx;
+        const py = a.y + t * dy;
+        return Math.sqrt((point.x - px) ** 2 + (point.y - py) ** 2);
+    }
+
+    function moveObject(hit, dx, dy) {
+        const objects = hit.layerType === "AI" ? state.aiAnnotations : state.canvasObjects;
+        const object = objects[hit.index];
+        if (!object) {
+            return;
+        }
+        if (object.type === "pen") {
+            (object.points || []).forEach(function (point) {
+                point.x += dx;
+                point.y += dy;
+            });
+        } else {
+            if (typeof object.x === "number") {
+                object.x += dx;
+            }
+            if (typeof object.y === "number") {
+                object.y += dy;
+            }
+            if (typeof object.toX === "number") {
+                object.toX += dx;
+            }
+            if (typeof object.toY === "number") {
+                object.toY += dy;
+            }
+        }
+    }
+
+    function drawSelectionOutline(selection) {
+        if (!selection || typeof selection.index !== "number") {
+            return;
+        }
+        const objects = selection.layerType === "AI" ? state.aiAnnotations : state.canvasObjects;
+        const object = objects[selection.index];
+        if (!object) {
+            return;
+        }
+        let x;
+        let y;
+        let width;
+        let height;
+        const type = String(object.type || "").toLowerCase();
+        if (type === "rect" || type === "highlight") {
+            x = object.x;
+            y = object.y;
+            width = object.width;
+            height = object.height;
+        } else if (type === "line" || type === "arrow") {
+            x = Math.min(object.x, object.toX);
+            y = Math.min(object.y, object.toY);
+            width = Math.abs(object.toX - object.x);
+            height = Math.abs(object.toY - object.y);
+        } else if (type === "circle") {
+            x = object.x - object.radius;
+            y = object.y - object.radius;
+            width = object.radius * 2;
+            height = object.radius * 2;
+        } else if (type === "text") {
+            x = object.x - 4;
+            y = object.y - 16;
+            width = 48;
+            height = 24;
+        } else if (type === "pen") {
+            let minX = Infinity;
+            let minY = Infinity;
+            let maxX = -Infinity;
+            let maxY = -Infinity;
+            (object.points || []).forEach(function (point) {
+                minX = Math.min(minX, point.x);
+                minY = Math.min(minY, point.y);
+                maxX = Math.max(maxX, point.x);
+                maxY = Math.max(maxY, point.y);
+            });
+            if (!isFinite(minX)) {
+                return;
+            }
+            x = minX - 4;
+            y = minY - 4;
+            width = maxX - minX + 8;
+            height = maxY - minY + 8;
+        } else {
+            return;
+        }
+        canvasContext.save();
+        canvasContext.strokeStyle = "#0b7285";
+        canvasContext.lineWidth = 1.5;
+        canvasContext.setLineDash([5, 4]);
+        canvasContext.strokeRect(x - 3, y - 3, width + 6, height + 6);
+        canvasContext.restore();
+    }
+
+    async function clearAiAnnotations() {
+        if (state.replay.active) {
+            showToast("回放模式下不能编辑画布，请先退出回放。", true);
+            return;
+        }
+        state.aiAnnotations = [];
+        state.selectedObject = null;
+        redrawCanvas();
+        await appendCanvasOperation("CLEAR_LAYER", "AI", { layerType: "AI" });
+        await saveCanvasSnapshot();
+        showToast("已清空 AI 标注");
+    }
+
+    async function deleteSelectedObject() {
+        if (!state.selectedObject || state.replay.active) {
+            return;
+        }
+        const layerType = state.selectedObject.layerType;
+        const index = state.selectedObject.index;
+        const objects = layerType === "AI" ? state.aiAnnotations : state.canvasObjects;
+        if (index >= 0 && index < objects.length) {
+            const removed = objects[index];
+            objects.splice(index, 1);
+            pushCanvasHistory();
+            redrawCanvas();
+            await appendCanvasOperation("DELETE_OBJECT", layerType, { objectId: removed.objectId });
+            await saveCanvasSnapshot();
+        }
+        state.selectedObject = null;
     }
 
     function setTool(tool) {
@@ -1415,15 +1769,20 @@
         }
     }
 
-    async function handleCreateSession(event) {
-        event.preventDefault();
+    async function autoCreateSession(firstMessageContent) {
         if (!state.token || !state.currentImageId) {
-            showToast("请先上传题图后再创建会话。", true);
-            return;
+            showToast("请先上传题图后再提问。", true);
+            return false;
         }
         if (!dom.modelSelect.value) {
             showToast("当前没有可用模型。", true);
-            return;
+            return false;
+        }
+
+        // 使用问题内容的前30个字符作为会话标题
+        var title = firstMessageContent.trim();
+        if (title.length > 30) {
+            title = title.substring(0, 30) + "...";
         }
 
         try {
@@ -1432,16 +1791,18 @@
                 body: JSON.stringify({
                     imageId: state.currentImageId,
                     modelCode: dom.modelSelect.value,
-                    title: dom.sessionTitleInput.value,
-                    subjectCode: dom.subjectCodeInput.value,
-                    gradeLevel: dom.gradeLevelInput.value
+                    title: title,
+                    subjectCode: "MATH",
+                    gradeLevel: "JUNIOR"
                 })
             });
-            showToast("会话创建成功");
+            showToast("会话已自动创建");
             await loadSessions();
             await selectSession(result.data.sessionId);
+            return true;
         } catch (error) {
             showToast("创建会话失败：" + error.message, true);
+            return false;
         }
     }
 
@@ -1620,11 +1981,6 @@
 
     async function handleSendMessage(event) {
         event.preventDefault();
-        if (!state.currentSessionId) {
-            showToast("请先创建或选择会话。", true);
-            return;
-        }
-
         const content = dom.messageInput.value.trim();
         if (!content) {
             showToast("请输入消息内容。", true);
@@ -1633,6 +1989,14 @@
         if (state.sendingMessage) {
             showToast("上一条消息还在生成中，请稍等片刻。", true);
             return;
+        }
+
+        // 如果没有当前会话，自动创建一个
+        if (!state.currentSessionId) {
+            const created = await autoCreateSession(content);
+            if (!created) {
+                return;
+            }
         }
 
         try {
@@ -1666,7 +2030,6 @@
 
     function bindEvents() {
         dom.uploadForm.addEventListener("submit", handleUpload);
-        dom.createSessionForm.addEventListener("submit", handleCreateSession);
         dom.messageForm.addEventListener("submit", handleSendMessage);
         dom.answerModeSelect.value = state.answerMode;
         dom.answerModeSelect.addEventListener("change", function () {
@@ -1733,6 +2096,7 @@
             await appendCanvasOperation("CLEAR_LAYER", "USER", { layerType: "USER" });
             await saveCanvasSnapshot();
         });
+        dom.clearAiBtn.addEventListener("click", clearAiAnnotations);
         dom.undoCanvasBtn.addEventListener("click", async function () {
             if (state.replay.active) {
                 showToast("回放模式下不能编辑画布，请先退出回放。", true);
@@ -1760,6 +2124,16 @@
         dom.annotationCanvas.addEventListener("pointermove", handleCanvasMove);
         dom.annotationCanvas.addEventListener("pointerup", handleCanvasUp);
         dom.annotationCanvas.addEventListener("pointerleave", handleCanvasUp);
+        window.addEventListener("keydown", function (event) {
+            if (event.key === "Delete" || event.key === "Backspace") {
+                const target = event.target;
+                if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) {
+                    return;
+                }
+                event.preventDefault();
+                deleteSelectedObject();
+            }
+        });
         window.addEventListener("resize", syncCanvasSize);
         dom.questionImage.addEventListener("load", syncCanvasSize);
         dom.questionImage.addEventListener("error", function () {

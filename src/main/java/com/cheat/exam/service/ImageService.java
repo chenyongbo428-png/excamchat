@@ -8,8 +8,10 @@ import com.cheat.exam.repository.ImageResourceRepository;
 import com.cheat.exam.repository.UserRepository;
 import com.cheat.exam.security.AuthenticatedUser;
 import com.cheat.exam.web.image.dto.ImageResponse;
+import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.io.InputStream;
+import javax.imageio.ImageIO;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -79,8 +81,7 @@ public class ImageService {
         image.setAccessUrl("/api/images/%s/content".formatted("PENDING"));
         image.setMimeType(contentType);
         image.setFileSize(file.getSize());
-        image.setWidth(null);
-        image.setHeight(null);
+        resolveImageDimension(target, image);
         image.setSha256(calculateSha256(target));
         image.setStorageType("LOCAL");
         image.setStatus("ACTIVE");
@@ -174,5 +175,25 @@ public class ImageService {
             case "image/webp" -> ".webp";
             default -> "";
         };
+    }
+
+    /**
+     * 从图片文件头解析实际像素尺寸，用于 AI 标注坐标的基准对齐。
+     * PNG/JPEG 由 ImageIO 支持；WebP 等 ImageIO 不支持的格式返回 null，
+     * 调用方回退到 null（前端会改用图片自然尺寸兜底）。
+     */
+    private void resolveImageDimension(Path target, ImageResource image) {
+        try {
+            BufferedImage bufferedImage = ImageIO.read(target.toFile());
+            if (bufferedImage != null) {
+                image.setWidth(bufferedImage.getWidth());
+                image.setHeight(bufferedImage.getHeight());
+                return;
+            }
+        } catch (IOException ex) {
+            // 忽略，保持 null
+        }
+        image.setWidth(null);
+        image.setHeight(null);
     }
 }

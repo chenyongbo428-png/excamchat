@@ -106,6 +106,7 @@
 | Anthropic | Claude 系列（支持 vision 的最新模型） | 支持 | 支持 SSE | 支持，但需关注模型与功能开关差异 | 强 | 高 | 文字引导风格通常较稳定 |
 | Google Gemini | Gemini 系列（支持视觉的最新模型） | 支持 | 支持 | 支持 JSON Schema 结构化输出 | 强 | 高 | 多模态和文件输入路线清晰 |
 | 阿里云百炼 / 通义千问 | Qwen / Qwen-VL 系列 | 支持 | 支持（后续接） | 支持 JSON mode；JSON Schema 能力需按模型复核 | 强 | 高 | 2026-07-05 已验证 `qwen-plus` 文本与 `qwen-vl-plus` 图片输入调用 HTTP 200 |
+| 火山方舟 / 豆包 | Doubao Seed / Ark Endpoint | 支持 | 支持 | 需按模型版本复核 | 强 | 中高 | 2026-07-21 已验证 Ark Endpoint `ep-20260721164323-qjbgk` 返回 `text/event-stream` |
 
 ---
 
@@ -227,6 +228,37 @@
 - API Key 必须通过 `BAILIAN_API_KEY` 环境变量传入
 - Base URL 必须通过 `BAILIAN_BASE_URL` 环境变量传入，例如 `https://{workspace}.cn-beijing.maas.aliyuncs.com`
 - 不允许把真实 API Key 写入代码、配置文件或迁移脚本
+
+### 6.5 火山方舟 / 豆包
+
+适合作为：
+
+- 第二家国内视觉模型供应商
+- 与 Qwen-VL 对比图片识别和讲解质量的备选模型
+- 支持 `reasoning_effort` 推理强度控制的高准确率候选
+
+当前实现：
+
+- 后端已新增 `ArkModelClient`，供应商编码为 `ARK`
+- 当前模型编码使用火山方舟 Endpoint ID：`ep-20260721164323-qjbgk`
+- 支持普通回复和 SSE 流式回复
+- 本地上传图片会在适配器中转为 data URL，避免公网访问依赖
+- Ark 流式 delta 兼容读取 `content` 和 `reasoning_content`
+- 当前标注协议仍为空；后续如豆包结构化输出稳定，再恢复 `annotations` 协议
+
+外部化配置：
+
+- `ARK_API_KEY`
+- `ARK_BASE_URL`，默认 `https://ark.cn-beijing.volces.com/api/v3`
+- `ARK_TIMEOUT_SECONDS`
+- `ARK_MAX_TOKENS`
+- `ARK_TEMPERATURE`
+- `ARK_REASONING_EFFORT`，支持 `minimal`、`low`、`medium`、`high`，默认 `medium`
+
+接入要求：
+
+- API Key 必须通过环境变量或被忽略的本地外部配置传入
+- 不允许把真实 API Key 写入迁移脚本或受版本控制配置文件
 
 ---
 

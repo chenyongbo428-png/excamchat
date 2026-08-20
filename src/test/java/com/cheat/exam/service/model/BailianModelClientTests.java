@@ -21,9 +21,11 @@ class BailianModelClientTests {
     @TempDir
     Path tempDir;
 
+    private final ModelOutputParser modelOutputParser = new ModelOutputParser(new ObjectMapper());
+
     @Test
     void supportsBailianProviderSelection() {
-        BailianModelClient client = new BailianModelClient(config("https://example.com", "test-key"), new ObjectMapper());
+        BailianModelClient client = new BailianModelClient(config("https://example.com", "test-key"), new ObjectMapper(), modelOutputParser);
 
         assertThat(client.supports(new ModelClientSelection(
             "qwen-vl-plus",
@@ -36,7 +38,7 @@ class BailianModelClientTests {
 
     @Test
     void throwsClearErrorWhenApiKeyMissing() {
-        BailianModelClient client = new BailianModelClient(config("https://example.com", ""), new ObjectMapper());
+        BailianModelClient client = new BailianModelClient(config("https://example.com", ""), new ObjectMapper(), modelOutputParser);
 
         assertThatThrownBy(() -> client.chat(sampleRequest("missing-key", null)))
             .isInstanceOf(ApiException.class)
@@ -52,7 +54,7 @@ class BailianModelClientTests {
             int port = server.getAddress().getPort();
             BailianModelClient client = new BailianModelClient(
                 config("http://127.0.0.1:" + port, "test-key"),
-                new ObjectMapper()
+                new ObjectMapper(), modelOutputParser
             );
 
             ModelChatResponse response = client.chat(sampleRequest("qwen-vl-plus", imagePath));
@@ -78,7 +80,7 @@ class BailianModelClientTests {
             int port = server.getAddress().getPort();
             BailianModelClient client = new BailianModelClient(
                 config("http://127.0.0.1:" + port, "test-key"),
-                new ObjectMapper()
+                new ObjectMapper(), modelOutputParser
             );
 
             ModelChatResponse response = client.chat(sampleRequest("qwen-vl-plus", imagePath));
@@ -100,7 +102,7 @@ class BailianModelClientTests {
             int port = server.getAddress().getPort();
             BailianModelClient client = new BailianModelClient(
                 config("http://127.0.0.1:" + port, "test-key"),
-                new ObjectMapper()
+                new ObjectMapper(), modelOutputParser
             );
 
             ModelChatResponse response = client.chat(sampleRequest("qwen-vl-plus", imagePath));
@@ -125,7 +127,7 @@ class BailianModelClientTests {
             int port = server.getAddress().getPort();
             BailianModelClient client = new BailianModelClient(
                 config("http://127.0.0.1:" + port, "test-key"),
-                new ObjectMapper()
+                new ObjectMapper(), modelOutputParser
             );
 
             ModelChatResponse response = client.chat(sampleRequest("qwen-vl-plus", imagePath));

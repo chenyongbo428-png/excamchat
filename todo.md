@@ -6,7 +6,7 @@
 
 - 用户上传题目图片
 - 将题目图片发送给可选的大模型进行讲解
-- 大模型以“引导型老师”身份回答，不直接一次性给出完整答案
+- 大模型以"引导型老师"身份回答，不直接一次性给出完整答案
 - Web 端提供画布能力，可在题目图上标注、绘图、辅助讲解
 - 根据大模型返回结果，在前端对题目图片进行高亮、标注、画图
 - 提供登录、会话历史、对话重放等基础能力
@@ -30,7 +30,7 @@
   - [ ] 定义用户类型：学生、老师、管理员
   - [ ] 明确当前第一版是否只做学生端
 - [ ] 明确 AI 交互边界
-  - [ ] 定义“引导型老师”提示词规范
+  - [ ] 定义"引导型老师"提示词规范
   - [ ] 约束模型不能直接输出完整答案的场景和例外场景
   - [ ] 明确模型输出是否需要结构化格式
 - [ ] 明确题目类型范围
@@ -212,7 +212,7 @@
 - [ ] 模型接入范围与差异说明遵循 `docs/model-provider-matrix.md`
 - [ ] AI 输入输出约束遵循 `docs/ai-prompt-spec.md`
 - [ ] 调用接口与响应包装遵循 `docs/api-design.md`
-- [ ] 接入前先复核 `docs/model-provider-matrix.md` 的“检查日期”和官方链接，避免模型能力过期
+- [ ] 接入前先复核 `docs/model-provider-matrix.md` 的"检查日期"和官方链接，避免模型能力过期
 
 - [x] 定义统一模型接口
   - [x] 文本输入
@@ -272,25 +272,25 @@
 - [x] 已修复 Qwen-VL 真实联调中暴露的问题：兼容接口使用 `max_tokens` 限制输出，响应按 UTF-8 读取，JSON 解析失败时抽取首个 `replyText` 兜底，不再因模型输出截断返回 502
 - [x] 2026-07-06 已用真实 `BAILIAN_API_KEY` / `BAILIAN_BASE_URL` 启动应用并完成端到端联调：注册、登录、模型列表、图片上传、创建 `qwen-vl-plus` 会话、发送消息、保存助手回复、读取画布均成功
 - [x] 已通过 `mvnw.cmd test`，当前 8 个测试全部通过
-- [x] 2026-07-06 根据真实效果调整为“直答识图模式”：百炼 / Qwen 暂不强制 JSON、不要求引导、不生成标注，直接展示模型原文答案，用于优先验证图片识别和解题正确性
+- [x] 2026-07-06 根据真实效果调整为"直答识图模式"：百炼 / Qwen 暂不强制 JSON、不要求引导、不生成标注，直接展示模型原文答案，用于优先验证图片识别和解题正确性
 - [x] 2026-07-06 真实验证简单题图 `2 + 3 = ?`，`qwen-vl-plus` 成功识别题目并返回正确答案 `5` 与简短解题过程
 - [x] 已通过 `mvnw.cmd test`，当前 9 个测试全部通过
-- [x] 2026-07-06 排查到“仍返回引导式固定话术”的原因：前端默认选中了仍启用的占位模型 `openai-default` 等，后端路由找不到真实客户端后兜底到了 `StubModelClient`
+- [x] 2026-07-06 排查到"仍返回引导式固定话术"的原因：前端默认选中了仍启用的占位模型 `openai-default` 等，后端路由找不到真实客户端后兜底到了 `StubModelClient`
 - [x] 已新增 Flyway 迁移 `V5__prefer_qwen_disable_placeholder_models.sql`，禁用未真实接入的 `openai-default`、`anthropic-default`、`gemini-default`，并将 `qwen-vl-plus` 设为启用且排序第一
 - [x] 已调整 `ModelClientRouter`：除非模型供应商显式为 `STUB`，否则不允许静默兜底到 `StubModelClient`；以后未接入模型会直接报 `MODEL_NOT_AVAILABLE`
 - [x] 已通过 `mvnw.cmd test`，当前 9 个测试全部通过
 - [x] 2026-07-06 已新增模型流式输出抽象：`ModelClient.stream(...)`；百炼 / Qwen 适配器已通过 OpenAI-compatible `stream=true` 读取 SSE delta，并在不支持真实流式的模型上保留分段降级输出
 - [x] 已通过 `mvnw.cmd test`，当前 9 个测试全部通过
-- [x] 2026-07-06 修复前端请求流式接口失败时只显示“流式响应建立失败”的问题：现在会读取真实 HTTP 错误，并在 `/messages/stream` 不可用时自动降级到原 `/messages` 非流式接口，避免旧后端进程未重启时无法提问
+- [x] 2026-07-06 修复前端请求流式接口失败时只显示"流式响应建立失败"的问题：现在会读取真实 HTTP 错误，并在 `/messages/stream` 不可用时自动降级到原 `/messages` 非流式接口，避免旧后端进程未重启时无法提问
 - [x] 已通过 `mvnw.cmd test` 和 Node `--check src/main/resources/static/app.js`
 - [x] 2026-07-06 已优化前端流式展示：发送后立即显示用户消息与助手草稿，SSE `delta` 到达时逐帧刷新草稿内容，`done` 后替换为持久化消息；流式连接失败会清理草稿并降级或提示，避免界面卡在半生成状态
 - [x] 已通过 `mvnw.cmd test` 和 Codex bundled Node `--check src/main/resources/static/app.js`
-- [x] 2026-07-06 使用浏览器插件排查“前端看起来不是流式”：根因是流式接口手动序列化 `Instant` 失败，前端收到非 2xx 后自动降级到普通 `/messages`，导致答案一次性出现
+- [x] 2026-07-06 使用浏览器插件排查"前端看起来不是流式"：根因是流式接口手动序列化 `Instant` 失败，前端收到非 2xx 后自动降级到普通 `/messages`，导致答案一次性出现
 - [x] 2026-07-06 已修复流式链路：`POST /api/sessions/{id}/messages/stream` 改为同步写 `HttpServletResponse` SSE，补齐 `X-Accel-Buffering: no`，`ObjectMapper` 显式注册 `JavaTimeModule` 并禁用时间戳日期输出
 - [x] 2026-07-06 已通过 `curl -N` 验证原始响应为 `200 text/event-stream` 且持续输出多个 `event: delta`；已通过浏览器插件验证前端助手消息长度从 91、116、147 逐步增长到完成状态
-- [x] 2026-07-07 已排查“长答案只显示一半”：根因不是前端 CSS，而是百炼/Qwen 非结构化兜底解析把用户可见 `replyText` 截断到 600 字符，且本地 `max_tokens` 仅 500；已移除用户可见答案截断，并将默认/本地输出上限提高到 3000 tokens
+- [x] 2026-07-07 已排查"长答案只显示一半"：根因不是前端 CSS，而是百炼/Qwen 非结构化兜底解析把用户可见 `replyText` 截断到 600 字符，且本地 `max_tokens` 仅 500；已移除用户可见答案截断，并将默认/本地输出上限提高到 3000 tokens
 - [x] 2026-07-07 已新增长文本回归测试，确保模型返回超过 600 字符的纯文本答案时，最终持久化助手消息不会再被替换成半截内容
-- [x] 2026-07-09 已将百炼/Qwen 从临时“直答识图模式”切换回“引导式讲解模式”，同时保留 3000 tokens 输出预算和流式输出能力
+- [x] 2026-07-09 已将百炼/Qwen 从临时"直答识图模式"切换回"引导式讲解模式"，同时保留 3000 tokens 输出预算和流式输出能力
 - [x] 2026-07-21 已新增火山方舟 / 豆包 `ArkModelClient`，按 OpenAI-compatible `/api/v3/chat/completions` 接入 `doubao-seed-2-1-turbo-260628` 视觉模型，支持图片 data URL 和普通回复；SSE 流式解析代码已保留，但模型配置默认禁用流式直到真实联调确认
 - [x] 2026-07-21 已新增 `ARK_API_KEY`、`ARK_BASE_URL`、`ARK_TIMEOUT_SECONDS`、`ARK_MAX_TOKENS`、`ARK_TEMPERATURE` 外部化配置；真实密钥不得写入仓库
 - [x] 2026-07-21 已新增 Flyway 迁移 `V7__add_ark_doubao_model.sql`，写入 `doubao-seed-2-1-turbo-260628` / `ARK` 模型配置
@@ -301,9 +301,29 @@
 - [x] 2026-07-21 已新增 Flyway 迁移 `V10__enable_qwen_stream_support.sql`，修复前端按 `supportsStream` 决策后 Qwen 被误判为非流式的问题
 - [x] 2026-07-21 已验证豆包 Ark Endpoint `ep-20260721164323-qjbgk` 支持 `text/event-stream`，新增 `V11__enable_ark_stream_support.sql` 开启豆包流式；Ark 流式解析兼容 `delta.content` 和 `delta.reasoning_content`
 - [x] 2026-07-21 已给 `ArkModelClient` 增加安全调用日志：记录模型、会话、模式、是否带图、HTTP 状态、响应长度、providerRequestId 和错误摘要，不输出 API Key 或图片 base64
-- [x] 2026-07-21 已给 `SessionService` 消息发送链路增加日志：记录普通/流式入口、模型返回、回复长度和消息落库 ID，用于排查“模型返回但前端不显示”问题
+- [x] 2026-07-21 已给 `SessionService` 消息发送链路增加日志：记录普通/流式入口、模型返回、回复长度和消息落库 ID，用于排查"模型返回但前端不显示"问题
 - [x] 2026-07-21 已新增 `ArkModelClientTests`，覆盖 Ark 配置缺失、图片 data URL 普通请求，以及 `delta.reasoning_content` / `delta.content` 流式增量解析
-- [ ] 下一步最优先：用真实题目图片验证 Qwen-VL 在引导模式下是否能先提出有效问题、再根据学生回答逐步推进
+- [x] 2026-07-21 已新增豆包 `reasoning_effort` 可配置能力：通过 `ARK_REASONING_EFFORT` 外部化配置传入，支持 `minimal/low/medium/high`，默认 `medium`
+- [x] 2026-08-05 已用真实题图验证豆包 Seed 2.1 Turbo / ARK 在引导模式下的表现（详见下方验证记录）
+- [x] 2026-08-05 已修复 ARK 默认超时 60s→180s、默认 reasoning_effort medium→low（推理模型+图片场景 60s 不够）
+- [x] 2026-08-05 已修复 AnswerEvaluator 与模型适配器的 JSON 输出冲突：新增 `evaluate` 模式透传，避免 `direct`/`guided` 模式的"不要输出 JSON"指令覆盖评估器的 JSON 需求
+- [x] 2026-08-05 已修复数据库 utf8 编码不支持 emoji 问题：新增 V12 迁移将所有表转为 utf8mb4，JDBC 连接改为 `characterEncoding=UTF-8`
+
+**2026-08-05 ARK 豆包引导模式真实验证记录**
+
+验证环境：本地 MySQL + Spring Boot + curl HTTP 驱动，模型 `ep-20260721164323-qjbgk`（豆包 Seed 2.1 Turbo 视觉），reasoning_effort=low，timeout=180s
+
+| 题图 | 难度 | 直答模式 | 引导 T1 | 引导 T2 | 引导 T3 | 看答案 |
+| --- | --- | --- | --- | --- | --- | --- |
+| cz1.png | 初中几何 | ✅ 完整5步证明 | ✅ 提问"哪两个角相等" | ✅ 评估PARTIAL(0.7)+推进 | ✅ 评估CORRECT(1.0)+推进 | ✅ 完整证明 |
+| cz2.png | 初中进阶 | ✅ 完整8步证明 | ✅ 提问"平行四边形对边关系" | — | — | — |
+| gz1.png | 高中立体几何 | ✅ 答案ACD+4选项验证 | ✅ 提问"设AB=1求长宽高" | — | — | — |
+
+结论：
+- 引导模式首轮均能正确识别题目、提出具体引导问题，不直接给完整答案 ✅
+- AnswerEvaluator 在多轮对话中正确返回 PARTIAL/CORRECT 评估结果，模型据此推进 ✅
+- 直答模式与引导模式行为有明显差异 ✅
+- 豆包 Seed 2.1 Turbo 视觉模型可稳定用于引导式讲解场景 ✅
 
 ---
 
@@ -325,29 +345,29 @@
   - [x] 用户消息
   - [ ] 图片消息
   - [ ] 助手消息
-- [ ] 设计 AI 输出格式
+- [x] 设计 AI 输出格式
   - [x] 纯文本讲解
-  - [ ] 结构化提示点
-  - [ ] 画布标注指令
-- [ ] 定义结构化协议
-  - [ ] 高亮区域
-  - [ ] 矩形框
-  - [ ] 箭头
-  - [ ] 文本说明
-  - [ ] 几何辅助线
-- [ ] 设计防越权策略
-  - [ ] 禁止输出不合适内容
-  - [ ] 禁止提示泄露
-  - [ ] 禁止直接整题抄答案
+  - [x] 结构化提示点（2026-08-06 已启用"文本 + 分隔符 + 标注 JSON"输出格式，`ModelOutputParser` 统一解析）
+  - [x] 画布标注指令（引导模式 Prompt 要求输出 rect/arrow/text/highlight 标注 JSON）
+- [x] 定义结构化协议
+  - [x] 高亮区域（highlight）
+  - [x] 矩形框（rect）
+  - [x] 箭头（arrow）
+  - [x] 文本说明（text）
+  - [ ] 几何辅助线（待实现）
+- [x] 设计防越权策略
+  - [x] 禁止输出不合适内容（`buildSafetyGuardPrompt` 第 1/5 条）
+  - [x] 禁止提示泄露（`buildSafetyGuardPrompt` 第 2/6 条，含注入指令防御）
+  - [x] 禁止直接整题抄答案（`buildSafetyGuardPrompt` 第 4 条）
 - [ ] 设计多轮对话状态管理
-  - [ ] 追问
-  - [ ] 用户回答后的二次引导
-  - [ ] 用户要求“直接答案”时的兜底策略
+  - [x] 追问（数学约束第 5 条：跳步时追问中间步骤）
+  - [x] 用户回答后的二次引导（AnswerEvaluator 评估后注入 Prompt，CORRECT→推进/PARTIAL→补缺/WRONG→纠错/UNCLEAR→要求重述）
+  - [x] 用户要求"直接答案"时的兜底策略（buildHintLimitPrompt + isRevealRequest，学生说"看答案"触发完整证明）
   - [x] 持久化当前阶段、当前目标、提示次数和连续未推进次数
   - [x] 无法可靠判断时停止编造提示
-  - [ ] 独立回答评估器：`CORRECT` / `PARTIAL` / `WRONG` / `UNCLEAR`
-  - [ ] 数学题步骤验证与解题路径约束
-  - [ ] 提示次数达到上限后的“查看下一步/查看答案”交互
+  - [x] 独立回答评估器：`CORRECT` / `PARTIAL` / `WRONG` / `UNCLEAR`
+  - [x] 数学题步骤验证与解题路径约束
+  - [x] 提示次数达到上限后的"查看下一步/查看答案"交互
 
 交付物：
 
@@ -361,15 +381,23 @@
 - [x] 已通过 `ModelChatRequest.messages` 向模型客户端传递会话历史消息
 - [x] 当前 Prompt 仍是代码内基础模板，后续可升级为 `prompt_template` 表或配置化模板
 - [x] 2026-07-06 百炼 / Qwen 适配器已临时切换为直答识图 Prompt，不再套用引导型老师和 JSON 标注约束；目的是先验证视觉识别与题解能力
-- [x] 2026-07-09 已恢复并落地“引导式讲解模式”：`SessionService` 负责生成引导型老师业务 Prompt，`BailianModelClient` 不再覆盖为直答 Prompt，而是要求首轮识别题意/关键条件/提出一个小问题，多轮时先判断学生回答再给下一步提示
+- [x] 2026-07-09 已恢复并落地"引导式讲解模式"：`SessionService` 负责生成引导型老师业务 Prompt，`BailianModelClient` 不再覆盖为直答 Prompt，而是要求首轮识别题意/关键条件/提出一个小问题，多轮时先判断学生回答再给下一步提示
 - [x] 2026-07-09 已将百炼/Qwen 纯文本兜底元数据调整为 `guidanceStage=observe`、`teacherIntent=guide_next_step`、`shouldRevealFinalAnswer=false`，避免非 JSON 输出被误标记为直答
-- [x] 2026-07-09 已通过 `BailianModelClientTests` 校验真实模型请求体包含“引导式讲解模式”“不要在第一轮直接给最终答案”“先判断学生”等关键约束，并通过 `mvnw.cmd test`
-- [x] 2026-07-20 已在前端工作台增加“引导模式 / 直答模式”切换，选择保存在浏览器本地，并通过普通/流式消息请求的 `mode` 字段传到后端 Prompt 编排
+- [x] 2026-07-09 已通过 `BailianModelClientTests` 校验真实模型请求体包含"引导式讲解模式""不要在第一轮直接给最终答案""先判断学生"等关键约束，并通过 `mvnw.cmd test`
+- [x] 2026-07-20 已在前端工作台增加"引导模式 / 直答模式"切换，选择保存在浏览器本地，并通过普通/流式消息请求的 `mode` 字段传到后端 Prompt 编排
 - [x] 2026-07-20 已约定 `mode=guided` 为默认值、`mode=direct` 为直答模式；后端未传值时自动按引导模式处理，并更新 `docs/api-design.md`
 - [x] 2026-07-20 已为会话增加 `guidance_state_json`，持久化当前阶段、当前目标、累计提示次数、连续未推进次数、上一轮回答判断和置信度
-- [x] 2026-07-20 已将引导状态注入下一轮 Prompt，并增加“每轮只围绕一个目标”“无法判断时要求具体过程”“连续未推进达到 2 次时停止猜测”的安全规则
+- [x] 2026-07-20 已将引导状态注入下一轮 Prompt，并增加"每轮只围绕一个目标""无法判断时要求具体过程""连续未推进达到 2 次时停止猜测"的安全规则
 - [x] 2026-07-20 已新增 Flyway 迁移 `V6__add_guidance_state_to_chat_session.sql`，并通过 H2 测试验证迁移可执行
-- [ ] 下一步最优先：使用同一道真实题目分别验证两种模式的回答差异，检查引导模式是否能根据学生回答逐步推进
+- [x] 2026-08-05 已新增独立回答评估器 `AnswerEvaluator`，通过独立模型调用评估学生回答为 CORRECT/PARTIAL/WRONG/UNCLEAR，评估结果注入老师 Prompt 避免模型自判自答
+- [x] 2026-08-05 已新增数学题步骤验证与解题路径约束：数学学科自动注入不跳步、每步一个运算动作、要求学生写具体过程等 Prompt 约束
+- [x] 2026-08-05 已实现提示次数上限（默认 5 次）和连续卡住上限（2 次）策略：达标后老师 Prompt 注入"查看下一步/查看答案"引导语，前端在最后一条助手消息下方显示快捷按钮
+- [x] 2026-08-05 已新增 `AnswerEvaluatorTests`（8 个用例），覆盖 JSON 解析、code-block 包裹、regex 兜底、空输入和置信度裁剪
+- [x] 2026-08-05 已通过 `mvn test`，当前 22 个测试全部通过
+- [x] 2026-08-05 已用同一道真实题图（cz1.png）分别验证引导模式/直答模式的回答差异：直答模式给出完整5步证明，引导模式首轮只提引导问题、多轮逐步推进、AnswerEvaluator 正确评估学生回答、提示上限后"看答案"触发完整证明
+- [x] 2026-08-05 已用三张难度递增题图（cz1初中/cz2初中进阶/gz1高中）完成验证，引导模式和直答模式行为差异明显，引导模式能根据学生回答逐步推进
+- [x] 2026-08-06 已实现防越权策略：`SessionService.buildSafetyGuardPrompt` 追加安全约束（只答学习相关内容、禁止泄露系统提示/评估器逻辑、拒绝角色扮演/注入指令、引导模式禁止抄整题答案、不输出有害内容）
+- [x] 2026-08-06 已恢复画布标注输出链路：新增 `ModelOutputParser` 统一解析"讲解文本 + `---ANNOTATIONS_JSON---` + 标注 JSON"格式；`ArkModelClient` 从"纯文本兜底"升级为标注解析（原 `toResponse` 硬编码空标注已修复）；`BailianModelClient` 优先解析分隔符格式再回退整体 JSON；两个适配器的流式 delta 在进入标注区后停止向前端推送 JSON 元数据；`AiAnnotationParser` 复用既有 rect/arrow/text/highlight 标准化逻辑，标注经 `SessionService.saveAssistantMessage` 落库并同步到画布 AI 图层
 
 ---
 
@@ -417,14 +445,14 @@
 当前实现记录：
 
 - [x] 当前已开放接口：`POST /api/sessions`、`GET /api/sessions`、`GET /api/sessions/{id}`、`DELETE /api/sessions/{id}`、`POST /api/sessions/{id}/messages`、`GET /api/sessions/{id}/messages`
-- [x] 当前消息发送已实现 MVP stub AI 回复，返回 `hintLevel`、`guidanceStage`、`teacherIntent` 和 `annotationSummary`，行为遵循 `docs/ai-prompt-spec.md` 的“引导型老师”约束
+- [x] 当前消息发送已实现 MVP stub AI 回复，返回 `hintLevel`、`guidanceStage`、`teacherIntent` 和 `annotationSummary`，行为遵循 `docs/ai-prompt-spec.md` 的"引导型老师"约束
 - [x] 当前消息发送链路会持久化用户消息与助手消息，助手结构化结果落库到 `raw_payload_json` / `annotation_json`
 - [x] 已通过 `mvnw.cmd test` 验证会话与消息最小闭环
 - [x] 已在本地 MySQL 8.0.36 环境下验证注册、登录、模型列表、图片上传、会话创建、会话列表、会话详情、消息发送、消息历史查询成功
 - [x] 已完成 Phase 7/8 前置工作：已查阅并落实 `docs/canvas-protocol.md`，补齐 `canvas_document` / `canvas_operation` 实体、迁移与 `GET/PUT /api/canvas/{sessionId}` 最小接口
 - [x] 2026-07-20 已新增会话引导状态字段和 V6 迁移；每轮模型调用会读取状态并在助手回复后更新状态
 - [x] 2026-07-21 已新增历史对话删除能力：`DELETE /api/sessions/{id}` 软删除会话，前端会话列表提供删除按钮，删除当前会话后自动清空工作区
-- [ ] 下一步：把模型回答评估拆成独立结构化步骤，避免老师 Prompt 同时承担判题和提示生成
+- [x] 下一步：把模型回答评估拆成独立结构化步骤，避免老师 Prompt 同时承担判题和提示生成（已通过 `AnswerEvaluator` 独立模型调用实现，8/5 验证通过）
 
 ---
 
@@ -443,15 +471,16 @@
 - [ ] 画布基础能力
   - [x] 加载题目原图
   - [x] 自由画笔
-  - [ ] 直线
+  - [x] 直线（2026-08-06 新增 line 工具）
   - [x] 箭头
   - [x] 矩形
-  - [ ] 圆形
+  - [x] 圆形（2026-08-06 新增 circle 工具）
   - [x] 文本框
-  - [ ] 橡皮擦
+  - [ ] 橡皮擦（2026-08-06 可用"选择"工具选中后 Delete 删除替代，独立橡皮擦待做）
   - [x] 撤销
   - [ ] 重做
   - [x] 清空当前图层
+  - [x] 选择/移动对象（2026-08-06 新增 select 工具，支持拖动移动与 Delete 删除）
 - [ ] 视图交互
   - [ ] 缩放
   - [ ] 平移
@@ -484,7 +513,7 @@
 - [x] 已落地前端工作台页面：登录/注册、模型选择、题图上传、会话列表、消息区、画布区
 - [x] 已打通当前后端最小 API：登录、模型列表、图片上传、会话创建、会话详情、消息发送与历史查询
 - [x] 已支持本地画布标注：画笔、矩形、箭头、文字、撤销、清空、导出 JSON
-- [x] 已支持将后端 `annotationSummary` 渲染为 AI 标注图层，形成“消息 + 题图 + AI 标注”联动 MVP
+- [x] 已支持将后端 `annotationSummary` 渲染为 AI 标注图层，形成"消息 + 题图 + AI 标注"联动 MVP
 - [x] 当前前端进度备忘已落 `src/main/resources/static/memo.md`
 - [x] 已完成工作台首轮视觉整理：修复左侧表单挤压、会话区布局混乱与右侧工具栏/画布信息区层次不清的问题，并补齐基础响应式样式
 - [x] 已将认证入口与工作台拆分为独立页面：`index.html` 负责登录/注册，`workspace.html` 负责登录后的会话、回放与画布工作流
@@ -497,12 +526,12 @@
 - [x] 2026-07-06 已接入前端流式问答：`POST /api/sessions/{sessionId}/messages/stream` 会逐段渲染助手答案，完成后保存用户消息、助手消息并刷新会话列表
 - [x] 已放大对话区域并优化长答案展示，支持 `###` 标题、编号步骤、粗体和 `\( ... \)` 公式片段的基础格式化
 - [x] 2026-07-06 已补强前端真正流式体验：提交后先渲染临时用户消息和助手流式草稿，随后按 SSE `delta` 增量更新内容，并用 `requestAnimationFrame` 合并高频刷新；最终 `done` 事件替换为后端持久化消息
-- [x] 2026-07-06 已用浏览器插件实测前端流式展示，确认助手消息在 `streaming` 状态下持续增量变长，完成后替换为持久化消息；同时修复流式接口失败时“发送成功”覆盖降级提示的问题
+- [x] 2026-07-06 已用浏览器插件实测前端流式展示，确认助手消息在 `streaming` 状态下持续增量变长，完成后替换为持久化消息；同时修复流式接口失败时"发送成功"覆盖降级提示的问题
 - [x] 2026-07-07 已确认长答案显示不全并非 `.message-list` 高度或 `overflow` 导致：消息区域可滚动，主消息渲染没有 `slice/substring`；前端会在 `done` 后使用后端持久化消息，因此后端 `replyText` 被截断会表现为流式结束后答案变短
 - [x] 2026-07-09 已将前端流式助手草稿的临时 `teacherIntent` 从 `answer_question` 调整为 `guide_next_step`，与后端引导式讲解模式保持一致
 - [x] 2026-07-21 前端发送消息时已按当前会话绑定模型的 `supportsStream` 决定是否调用 `/messages/stream`；Qwen 和豆包开启流式后会走 SSE，未开启流式的模型自动走普通接口
 - [x] 2026-07-21 前端会话列表已增加历史对话删除按钮，并在删除当前会话后自动退出回放、清空消息区和画布工作区
-- [x] 2026-07-21 前端模型选择区已补充“只对新建会话生效”的提示，避免误以为切换下拉框会改变已创建会话的模型
+- [x] 2026-07-21 前端模型选择区已补充"只对新建会话生效"的提示，避免误以为切换下拉框会改变已创建会话的模型
 - [x] 2026-07-21 前端发送消息时会在浏览器控制台输出当前会话模型、`supportsStream` 和回答模式，辅助排查流式链路是否生效
 
 ---
@@ -521,17 +550,17 @@
   - [x] 圈重点
   - [x] 箭头指向
   - [x] 文本批注
-  - [ ] 几何辅助图
+  - [x] 几何辅助图（2026-08-06 新增 line 虚线辅助线 + circle 辅助圆，已真实验证）
 - [x] 定义 AI 标注指令解析器
 - [ ] 处理模型输出不规范情况
   - [x] JSON 解析失败恢复
   - [x] 坐标缺失兜底
   - [x] 超出图片边界纠正
-- [ ] 支持 AI 分步骤标注
-  - [ ] 第一步提示
-  - [ ] 第二步补充
-  - [ ] 最终总结
-- [ ] 支持用户手动继续编辑 AI 标注
+- [x] 支持 AI 分步骤标注（多轮标注按消息逐步累积到 AI 图层，2026-08-06 已真实验证）
+  - [x] 第一步提示（首轮 line/rect 标注圈出待证线段/图形）
+  - [x] 第二步补充（后续轮次 highlight/circle/arrow 在既有标注上叠加）
+  - [ ] 最终总结（待观察 guidanceStage=summary 轮次的标注行为，可后续微调）
+- [x] 支持用户手动继续编辑 AI 标注（2026-08-06 已实现：select 工具选中/拖动移动 + Delete 删除 + AI 图层解锁 + 快照与操作日志保存）
 - [x] 支持保存 AI 标注结果
 
 交付物：
@@ -554,7 +583,23 @@
 - [x] 已接入第一家真实视觉模型适配器：阿里云百炼 / Qwen，输出仍走 `AiAnnotationParser` 标准化
 - [x] 已完成真实 Qwen-VL 回复端到端联调，并补齐 JSON 解析失败恢复；当前真实模型可稳定返回文字讲解，标注可能为空
 - [x] 当前真实模型联调策略已从标注优先调整为直答优先，AI 图层可暂时为空，不阻断问答主流程
-- [ ] 下一步最优先：待直答识题准确率可接受后，再恢复并微调 `rect/highlight/text/arrow` 标注输出
+- [x] 下一步最优先：待直答识题准确率可接受后，再恢复并微调 `rect/highlight/text/arrow` 标注输出（2026-08-06 已实现并真实验证：引导模式 Prompt 输出标注 JSON + `ModelOutputParser` 统一解析 + Ark/Bailian 两个适配器接入 + 流式标注区过滤，见下方验证记录）
+
+**2026-08-06 画布标注输出真实验证记录（cz1.png / ARK 豆包）**
+
+验证环境：本地 MySQL + Spring Boot + ARK `ep-20260721164323-qjbgk`，引导模式非流式
+
+| 轮次 | 模型输出 | 标注输出 | 评估器 |
+| --- | --- | --- | --- |
+| T1 首轮 | 正确识别题目+提问"证哪两个角相等"，不直接给答案 | ✅ 1 个 rect（框 △CEF，x=570,y=380,100×200） | 不触发 |
+| T2 学生答"等角对等边" | 肯定思路+推进"求∠ACD 度数" | ✅ highlight 高亮 ∠ACD + rect 框等腰△ACE | CORRECT, 0.9 |
+
+结论：
+- 模型完整遵守标注输出协议：讲解文本 + `---ANNOTATIONS_JSON---` + 标注 JSON，`ModelOutputParser` 正确拆分（331 字符原文 → 195 字符讲解）
+- `AiAnnotationParser` 正确标准化 rect/highlight 两种类型，标注落库 `annotation_json` 并同步画布 AI 图层
+- AnswerEvaluator 与标注输出共存正常，引导模式多轮逐步推进保持
+- emoji（👍✅）可正常存储（utf8mb4）
+- 遗留问题：上传接口未提取图片宽高（`background.width/height` 为 0），标注边界裁剪未生效，属 Phase 3 图片元数据提取范围
 
 ---
 
@@ -566,7 +611,7 @@
 - [ ] 回放接口遵循 `docs/api-design.md`
 - [ ] 画布回放与标注渲染遵循 `docs/canvas-protocol.md`
 
-- [x] 定义“回放”范围
+- [x] 定义"回放"范围
   - [x] 聊天消息逐条回放
   - [x] AI 标注逐步回放
   - [x] 用户画布操作回放
@@ -608,7 +653,7 @@
 - [ ] 模型管理字段遵循 `docs/database-design.md`
 - [ ] 模型展示和启停逻辑遵循 `docs/model-provider-matrix.md`
 - [ ] 管理接口遵循 `docs/api-design.md`
-- [ ] 后台展示模型状态时标注“是否支持视觉 / 流式 / 结构化输出”
+- [ ] 后台展示模型状态时标注"是否支持视觉 / 流式 / 结构化输出"
 
 - [ ] 模型配置管理
   - [ ] 模型上下线
@@ -816,3 +861,118 @@
 - [ ] 涉及模型能力的功能开发前，先核对 `docs/model-provider-matrix.md` 的检查日期；若距当前超过 30 天，先按官方文档复核
 - [x] 每完成一批功能后，必须回写 `todo.md` 对应阶段的完成状态和当前实现说明
 - [x] 数据库方案已定为 MySQL，后续 SQL、索引和部署文档优先按 MySQL 编写
+
+---
+
+## 9. 变更记录
+
+### 2026-08-05 前端布局与交互优化
+
+**改动文件：**
+- `src/main/resources/static/workspace.html`
+- `src/main/resources/static/app.css`
+- `src/main/resources/static/app.js`
+
+**变更内容：**
+
+1. **题图与标注模块移至页面顶部**
+   - 原布局为左右两栏（侧栏 + 主区域），题图画布在主区域最下方
+   - 新布局改为上下结构：顶部全宽放置题图画布，下方为左侧会话列表 + 右侧聊天区
+   - 图片上传按钮也整合到顶部画布面板的标题栏中
+   - 标注颜色和线宽控件合并到工具栏，减少视觉层级
+
+2. **去掉"创建会话"按钮，改为自动创建**
+   - 删除了创建会话表单（标题、学科、年级输入框 + 创建按钮）
+   - 新逻辑：用户上传题图后，在聊天框输入第一条消息并发送时，系统自动创建会话
+   - 会话标题取自用户第一条问题的前 30 个字符
+   - `subjectCode` 默认 `MATH`，`gradeLevel` 默认 `JUNIOR`
+
+3. **隐藏"当前画布 JSON"调试面板**
+   - 通过 `style="display:none;"` 隐藏，保留 DOM 结构供后续调试使用
+
+### 2026-08-06 防越权策略 + 画布标注输出恢复
+
+**改动文件：**
+- `src/main/java/com/cheat/exam/service/model/ModelOutputParser.java`（新增）
+- `src/main/java/com/cheat/exam/service/model/ArkModelClient.java`
+- `src/main/java/com/cheat/exam/service/model/BailianModelClient.java`
+- `src/main/java/com/cheat/exam/service/SessionService.java`
+- `src/test/java/com/cheat/exam/service/model/ArkModelClientTests.java`
+- `src/test/java/com/cheat/exam/service/model/BailianModelClientTests.java`
+
+**变更内容：**
+
+1. **防越权策略**：`SessionService.buildSafetyGuardPrompt` 追加 6 条安全约束——只回答学习相关内容、禁止泄露系统提示/评估器逻辑、拒绝角色扮演/非学习任务、引导模式禁止直接抄整题答案、不输出有害内容、拒绝注入指令（如"忽略以上所有指令"）
+
+2. **画布标注输出恢复**：
+   - 新增 `ModelOutputParser`，统一解析"讲解文本 + `---ANNOTATIONS_JSON---` + 标注 JSON"格式，支持流式标注区检测
+   - 引导模式 Prompt 明确标注协议：rect/arrow/text/highlight 类型、原图坐标规则、分隔符格式
+   - `ArkModelClient` 从"整段当纯文本"升级为标注解析，修复 `toResponse` 硬编码空标注问题
+   - `BailianModelClient` 优先解析分隔符格式，兼容旧的整体 JSON 格式
+   - 两个适配器的流式 delta 在进入标注区后停止向前端推送 JSON 元数据
+   - 标注经 `AiAnnotationParser` 标准化后落库 `annotation_json` 并同步到画布 AI 图层
+
+### 2026-08-06 画布几何辅助图 + AI 分步骤标注 + 用户编辑 AI 标注
+
+**改动文件：**
+- `src/main/java/com/cheat/exam/service/SessionService.java`
+- `src/main/java/com/cheat/exam/service/ai/AiAnnotationParser.java`
+- `src/main/resources/static/app.js`
+- `src/main/resources/static/workspace.html`
+- `src/test/java/com/cheat/exam/service/ai/AiAnnotationParserTests.java`
+
+**变更内容：**
+
+1. **几何辅助图**：
+   - 标注协议新增 `line`（线段/辅助线，支持 `dashed` 虚线）和 `circle`（圆/辅助圆，`x,y,radius`）类型
+   - `AiAnnotationParser` 新增 `putLineFields`/`putCircleFields`，line/circle 的 fillColor 透明、坐标超界裁剪
+   - 前端 `drawAiAnnotation`/`drawUserObject` 渲染 line（虚线可选）/circle
+   - 工具栏新增"直线""圆形"工具，用户可手绘几何辅助线
+
+2. **AI 分步骤标注**：多轮对话每轮标注按消息追加到 AI 图层，逐步累积展示（T1 line + T2 highlight/circle 叠加验证通过）
+
+3. **用户手动编辑 AI 标注**：
+   - AI 图层 `locked` 改为 `false`，允许编辑
+   - 新增"选择/移动"工具：命中检测（rect/highlight/line/arrow/circle/text/pen）+ 拖动移动 + Delete 删除
+   - 新增"清空AI标注"按钮；编辑操作经 `UPDATE_OBJECT`/`DELETE_OBJECT` 落操作日志并保存快照
+
+**2026-08-06 真实验证（cz1.png / ARK 豆包，session 30）**
+- T1：模型输出 2 条 line 辅助线（红色虚线标出待证线段 CE、CF）+ 引导提问；标注正确解析并同步画布 AI 图层
+- T2 学生答"等角对等边"：AnswerEvaluator CORRECT(0.95)；模型输出 highlight 高亮 △CEF + circle 圈住 ∠CAD，与 T1 标注按步骤累积
+- 24 个测试全部通过（AiAnnotationParserTests 新增 line/circle 2 个用例）
+
+### 2026-08-06 画布标注坐标错位修复（图片尺寸基准对齐）
+
+**问题**：AI 标注（如"待证线段CE/CF"辅助线）显示在画面右下角，未覆盖题图几何图形。
+
+**根因**：
+1. `ImageService.upload` 上传时 `setWidth(null); setHeight(null)` 不提取图片尺寸，`image_resource` 宽高为空
+2. 引导模式 Prompt 未告知模型图片实际尺寸，模型内部对图片缩放/pad 后按自己的尺寸基准输出坐标（cz1.png 实际 638×461，模型却输出 y=590 等越界坐标）
+3. 前端 `toCanvasX/Y = rawX/naturalWidth * canvas.width` 用真实图片尺寸归一化，与模型坐标基准不一致 → 错位
+
+**修复**：
+1. `ImageService.resolveImageDimension`：上传时用 `ImageIO` 解析 PNG/JPEG 宽高存库（WebP 暂不支持返回 null）
+2. `SessionService.buildSystemPrompt`：从 `session.image.width/height` 读取实际尺寸，注入标注协议"题目图片实际尺寸：宽 X 像素，高 Y 像素。所有标注坐标必须基于该尺寸输出"
+
+**验证**（cz1.png 638×461，session 32）：
+- 修复后模型坐标全部落在 638×461 内：rect 正方形ABCD (398,148)184×234；line CE (580,380)→(638,250)；line CF (580,380)→(580,225)
+- 标注正确覆盖几何图形区域，画布 AI 图层同步正常
+- 遗留：历史图片（上传于修复前）宽高仍为 null，前端会用图片自然尺寸兜底归一化，坐标基准仍可能偏差；建议重新上传题图或后续提供批量补数据脚本
+
+### 2026-08-06 标注坐标改为 0~1000 归一化 + 定位引导
+
+**背景**：注入图片尺寸后标注仍不在正确位置。诊断发现根因是**视觉模型绝对像素定位不可靠**：
+- 豆包模型以为图片是 1784×1264（实际 638×461），输出坐标基于错误坐标系
+- 同一张图多次调用，模型对同一元素（如 C 点）输出位置差异巨大（0-1000 下 x 从 331 到 625）
+- Qwen-VL 更差，直接无视坐标指令只讲题
+
+**修复**：
+1. **0~1000 归一化坐标系**：Prompt 要求模型把图片看作 1000×1000 画布，按几何元素的相对位置输出坐标；`AiAnnotationParser` 裁剪边界改为 1000；前端 `toCanvasX/Y`、`toImageX/Y` 改为 `坐标/1000×画布尺寸`
+2. **定位引导 Prompt**：要求模型先判断元素在图片中的相对位置（左上/右上/中部等）再输出坐标；无法可靠定位时省略标注，禁止瞎猜；label 必须说明指向元素
+
+**验证**（session 41，cz1.png / ARK）：
+- 模型输出 3 个自洽标注：rect 正方形ABCD (400,325)200×255；line 对角线AC (405,335)→(595,575)；line 线段DE (595,335)→(665,420)
+- 几何关系正确（正方形 + 对角线方向 + 右边界外延线段），标注不再越界
+- 测试 24 个全部通过；待用户在浏览器实测确认视觉位置
+
+**经验**：视觉模型（豆包/Qwen-VL）对图片精确像素坐标的感知不可靠且不稳定，标注坐标应使用归一化相对坐标 + 定位引导，并接受位置为近似值，配合前端"选择/移动"工具供用户微调

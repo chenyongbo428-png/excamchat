@@ -57,6 +57,7 @@
 - Added session history deletion on 2026-07-21: the sidebar can delete a conversation through `DELETE /api/sessions/{id}`, using backend soft delete and clearing the workspace if the current session is removed.
 - Clarified model selection behavior in the sidebar: choosing a model only affects newly created sessions, while existing sessions keep their original bound model.
 - Re-enabled Qwen streaming in model metadata with `V10__enable_qwen_stream_support.sql` after the frontend started respecting `supportsStream`.
+- Added configurable Doubao `reasoning_effort` through `ARK_REASONING_EFFORT`, defaulting to `medium`.
 
 ## Pending
 
